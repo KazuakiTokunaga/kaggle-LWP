@@ -41,7 +41,7 @@ class ENV:
 class RCFG:
     run_name = 'exp001'
     debug = True
-    debug_size = 50
+    debug_size = 100
     n_splits = 5
     seed_cv = 42
     preprocess_train = False
@@ -449,9 +449,19 @@ class Runner():
 
         self.train_essays = pd.read_csv(f'{ENV.input_dir}/writing-quality-challenge-constructed-essays/train_essays_fast.csv')
 
+        if RCFG.debug:
+            target_id = self.train_logs['id'].unique()[:RCFG.debug_size]
+            self.train_logs = self.train_logs[self.train_logs['id'].isin(target_id)]
+
 
     def preprocess(self,):
 
+        self.logger.info('Start preprocessing.')
+
+        self.logger.info('Get essays of test data.')
+        test_essays = getEssays(self.test_logs)
+
+        self.logger.info('Start creating features based on sentences and paragraphs.')
         train_word_df = split_essays_into_words(self.train_essays)
         train_word_agg_df = compute_word_aggregations(train_word_df)
 
@@ -461,22 +471,20 @@ class Runner():
         train_paragraph_df = split_essays_into_paragraphs(self.train_essays)
         train_paragraph_agg_df = compute_paragraph_aggregations(train_paragraph_df)
 
-        preprocessor = Preprocessor(seed=42)
-        train_feats = preprocessor.make_feats(self.train_logs)
-
-        # Features for test dataset
-        test_essays = getEssays(self.test_logs)
+        
         test_word_agg_df = compute_word_aggregations(split_essays_into_words(test_essays))
         test_sent_agg_df = compute_sentence_aggregations(split_essays_into_sentences(test_essays))
         test_paragraph_agg_df = compute_paragraph_aggregations(split_essays_into_paragraphs(test_essays))
 
+        self.logger.info('Start creating features based on logs.')
         preprocessor = Preprocessor(seed=42)
-
-        test_feats = preprocessor.make_feats(self.test_logs)
+        train_feats = preprocessor.make_feats(self.train_logs)
         nan_cols = train_feats.columns[train_feats.isna().any()].tolist()
         train_feats = train_feats.drop(columns=nan_cols)
+        
+        preprocessor = Preprocessor(seed=42)
+        test_feats = preprocessor.make_feats(self.test_logs)
         test_feats = test_feats.drop(columns=nan_cols)
-
 
         train_agg_fe_df = self.train_logs.groupby("id")[['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']].agg(
             ['mean', 'std', 'min', 'max', 'last', 'first', 'sem', 'median', 'sum'])
@@ -545,9 +553,9 @@ class Runner():
     def train(self,):
 
         if RCFG.debug:
-            RCFG.cnt_seed = 1
+            RCFG.cnt_seed = 2
             RCFG.n_splits = 3
-            
+
         target_col = ['score']
         drop_cols = ['id']
         train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id']]
@@ -571,7 +579,7 @@ class Runner():
             seed = RCFG.base_seed + i
             self.logger.info(f'Start training for seed {seed}.')
 
-            kf = model_selection.KFold(n_splits=10, random_state= seed, shuffle=True)
+            kf = model_selection.KFold(n_splits=RCFG.n_splits, random_state= seed, shuffle=True)
             oof_valid_preds = np.zeros(self.train_feats.shape[0])
             
             for fold, (train_idx, valid_idx) in enumerate(kf.split(self.train_feats)):
@@ -606,8 +614,7 @@ class Runner():
 
         nowstr_jst = str(datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime('%Y-%m-%d %H:%M:%S'))
         data = [nowstr_jst, ENV.commit_hash, class_vars_to_dict(RCFG)] + self.scores
-        self.data_to_write.append(data)
-        self.sheet.write(self.data_to_write, sheet_name='cv_scores')
+        self.sheet.write(data, sheet_name='cvscores')
     
 
     def predict(self, ):
