@@ -45,6 +45,9 @@ class RCFG:
     n_splits = 5
     seed_cv = 42
     preprocess_train = False
+    cnt_seed = 5
+    base_seed = 42
+    n_splits = 10
 
 
 # Function to construct essays copied from here (small adjustments): https://www.kaggle.com/code/yuriao/fast-essay-constructor
@@ -541,6 +544,10 @@ class Runner():
 
     def train(self,):
 
+        if RCFG.debug:
+            RCFG.cnt_seed = 1
+            RCFG.n_splits = 3
+            
         target_col = ['score']
         drop_cols = ['id']
         train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id']]
@@ -559,11 +566,16 @@ class Runner():
             'min_child_samples': 18
         }
 
-        for i in range(5): 
-            kf = model_selection.KFold(n_splits=10, random_state=42 + i, shuffle=True)
+        self.logger.info('Start training.')
+        for i in range(RCFG.cnt_seed): 
+            seed = RCFG.base_seed + i
+            self.logger.info(f'Start training for seed {seed}.')
+
+            kf = model_selection.KFold(n_splits=10, random_state= seed, shuffle=True)
             oof_valid_preds = np.zeros(self.train_feats.shape[0])
             
             for fold, (train_idx, valid_idx) in enumerate(kf.split(self.train_feats)):
+                self.logger.info(f'Start training for fold {fold}.')
                 
                 X_train, y_train = self.train_feats.iloc[train_idx][train_cols], self.train_feats.iloc[train_idx][target_col]
                 X_valid, y_valid = self.train_feats.iloc[valid_idx][train_cols], self.train_feats.iloc[valid_idx][target_col]
