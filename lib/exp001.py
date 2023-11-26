@@ -439,10 +439,10 @@ class Runner():
 
     def load_dataset(self,):
 
-        self.train_logs = pd.read_csv(f'{ENV.input_dir}/linking-writing-processes-to-writing-quality/train_logs.csv')
-        self.train_scores = pd.read_csv(f'{ENV.input_dir}/linking-writing-processes-to-writing-quality/train_scores.csv')
-        self.test_logs = pd.read_csv(f'{ENV.input_dir}/linking-writing-processes-to-writing-quality/test_logs.csv')
-        self.ss_df = pd.read_csv(f'{ENV.input_dir}/linking-writing-processes-to-writing-quality/sample_submission.csv')
+        self.train_logs = pd.read_csv(f'{ENV.input_dir}linking-writing-processes-to-writing-quality/train_logs.csv')
+        self.train_scores = pd.read_csv(f'{ENV.input_dir}linking-writing-processes-to-writing-quality/train_scores.csv')
+        self.test_logs = pd.read_csv(f'{ENV.input_dir}linking-writing-processes-to-writing-quality/test_logs.csv')
+        self.ss_df = pd.read_csv(f'{ENV.input_dir}linking-writing-processes-to-writing-quality/sample_submission.csv')
 
         self.train_essays = pd.read_csv(f'{ENV.input_dir}/writing-quality-challenge-constructed-essays/train_essays_fast.csv')
 

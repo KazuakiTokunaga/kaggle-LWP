@@ -47,7 +47,7 @@ class WriteSheet:
         sheet.append_row(data_json, table_range=table_range)
 
 
-def get_commit_hash(repo_path='/kaggle/working/kaggle-commonlit/'):
+def get_commit_hash(repo_path='/kaggle/working/kaggle-LWP'):
 
     wd = os.getcwd()
     os.chdir(repo_path)
