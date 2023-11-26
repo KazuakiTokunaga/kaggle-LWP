@@ -457,6 +457,8 @@ class Runner():
 
         train_paragraph_df = split_essays_into_paragraphs(self.train_essays)
         train_paragraph_agg_df = compute_paragraph_aggregations(train_paragraph_df)
+
+        preprocessor = Preprocessor(seed=42)
         train_feats = preprocessor.make_feats(self.train_logs)
 
         # Features for test dataset
