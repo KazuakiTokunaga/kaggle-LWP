@@ -450,6 +450,7 @@ class Runner():
         self.train_essays = pd.read_csv(f'{ENV.input_dir}/writing-quality-challenge-constructed-essays/train_essays_fast.csv')
 
         if RCFG.debug:
+            self.logger.info(f'Debug mode. Get only first {RCFG.debug_size} ids.')
             target_id = self.train_logs['id'].unique()[:RCFG.debug_size]
             self.train_logs = self.train_logs[self.train_logs['id'].isin(target_id)]
 
@@ -620,8 +621,8 @@ class Runner():
     def predict(self, ):
 
         test_predict_list = []
-        for i in range(5): 
-            for fold in range(10):
+        for i in range(RCFG.cnt_seed): 
+            for fold in range(RCFG.n_splits):
                 model = self.models_dict[f'{fold}_{i}']
                 train_cols = model.feature_name_
                 X_test = self.test_feats[train_cols]
