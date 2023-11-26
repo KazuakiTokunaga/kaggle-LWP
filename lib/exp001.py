@@ -7,16 +7,11 @@ import pickle
 import re
 import time
 from random import choice, choices
-from functools import reduce
 from tqdm import tqdm
-from itertools import cycle
 import numpy as np
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
 from collections import Counter
 from collections import defaultdict
-from functools import reduce
 from itertools import cycle
 from scipy import stats
 from scipy.stats import skew, kurtosis
@@ -44,7 +39,6 @@ class RCFG:
     debug_size = 100
     n_splits = 5
     seed_cv = 42
-    preprocess_train = False
     cnt_seed = 5
     base_seed = 42
     n_splits = 10
@@ -195,6 +189,7 @@ def compute_paragraph_aggregations(df):
     paragraph_agg_df.drop(columns=["paragraph_word_count_count"], inplace=True)
     paragraph_agg_df = paragraph_agg_df.rename(columns={"paragraph_len_count":"paragraph_count"})
     return paragraph_agg_df
+
 
 class Preprocessor:
     
@@ -547,6 +542,7 @@ class Runner():
         test_feats = test_feats.merge(test_sent_agg_df, on='id', how='left')
         test_feats = test_feats.merge(test_paragraph_agg_df, on='id', how='left')
 
+        train_feats.to_csv(f'{ENV.output_dir}train_feats.csv', index=False)
         self.train_feats = train_feats
         self.test_feats = test_feats
 
@@ -631,7 +627,6 @@ class Runner():
         
         self.test_feats['score'] = np.mean(test_predict_list, axis=0)
         self.test_feats[['id', 'score']].to_csv("submission.csv", index=False)
-        self.test_feats[['id', 'score']].head()
 
 
     def run(self,):
