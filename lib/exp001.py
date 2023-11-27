@@ -190,7 +190,6 @@ def compute_paragraph_aggregations(df):
     paragraph_agg_df = paragraph_agg_df.rename(columns={"paragraph_len_count":"paragraph_count"})
     return paragraph_agg_df
 
-
 class Preprocessor:
     
     def __init__(self, seed):
@@ -205,46 +204,19 @@ class Preprocessor:
         self.gaps = [1, 2, 3, 5, 10, 20, 50, 100]
         
         self.idf = defaultdict(float)
-    
-    def activity_counts(self, df):
-        tmp_df = df.groupby('id').agg({'activity': list}).reset_index()
-        ret = list()
-        for li in tqdm(tmp_df['activity'].values):
-            items = list(Counter(li).items())
-            di = dict()
-            for k in self.activities:
-                di[k] = 0
-            for item in items:
-                k, v = item[0], item[1]
-                if k in di:
-                    di[k] = v
-            ret.append(di)
-        ret = pd.DataFrame(ret)
-        cols = [f'activity_{i}_count' for i in range(len(ret.columns))]
-        ret.columns = cols
 
-        cnts = ret.sum(1)
+    def _get_count_dataframe(self, df, colname, target_list):
+        """
+        ログのcolnameのカウントを取得してカラムにする
+        カウントを取得するのはtarget_listに含まれるもののみ
+        """
 
-        for col in cols:
-            if col in self.idf.keys():
-                idf = self.idf[col]
-            else:
-                idf = df.shape[0] / (ret[col].sum() + 1)
-                idf = np.log(idf)
-                self.idf[col] = idf
-
-            ret[col] = 1 + np.log(ret[col] / cnts)
-            ret[col] *= idf
-
-        return ret
-
-    def event_counts(self, df, colname):
         tmp_df = df.groupby('id').agg({colname: list}).reset_index()
         ret = list()
         for li in tqdm(tmp_df[colname].values):
             items = list(Counter(li).items())
             di = dict()
-            for k in self.events:
+            for k in target_list:
                 di[k] = 0
             for item in items:
                 k, v = item[0], item[1]
@@ -254,10 +226,17 @@ class Preprocessor:
         ret = pd.DataFrame(ret)
         cols = [f'{colname}_{i}_count' for i in range(len(ret.columns))]
         ret.columns = cols
+    
+        return ret
+
+
+    def _tf_idf_transform(self, df, ret):
+        """
+        カウントデータをtf-idfに変換する
+        """
 
         cnts = ret.sum(1)
-
-        for col in cols:
+        for col in ret.columns:
             if col in self.idf.keys():
                 idf = self.idf[col]
             else:
@@ -269,38 +248,11 @@ class Preprocessor:
             ret[col] *= idf
 
         return ret
+    
+    def get_count(self, df, colname, target_list):
+        ret = self._get_count_dataframe(df, 'activity', self.activities)
+        return self._tf_idf_transform(df, ret)
 
-    def text_change_counts(self, df):
-        tmp_df = df.groupby('id').agg({'text_change': list}).reset_index()
-        ret = list()
-        for li in tqdm(tmp_df['text_change'].values):
-            items = list(Counter(li).items())
-            di = dict()
-            for k in self.text_changes:
-                di[k] = 0
-            for item in items:
-                k, v = item[0], item[1]
-                if k in di:
-                    di[k] = v
-            ret.append(di)
-        ret = pd.DataFrame(ret)
-        cols = [f'text_change_{i}_count' for i in range(len(ret.columns))]
-        ret.columns = cols
-
-        cnts = ret.sum(1)
-
-        for col in cols:
-            if col in self.idf.keys():
-                idf = self.idf[col]
-            else:
-                idf = df.shape[0] / (ret[col].sum() + 1)
-                idf = np.log(idf)
-                self.idf[col] = idf
-            
-            ret[col] = 1 + np.log(ret[col] / cnts)
-            ret[col] *= idf
-            
-        return ret
 
     def match_punctuations(self, df):
         tmp_df = df.groupby('id').agg({'down_event': list}).reset_index()
@@ -310,15 +262,18 @@ class Preprocessor:
             items = list(Counter(li).items())
             for item in items:
                 k, v = item[0], item[1]
-                if k in self.punctuations:
+                if k in self.punctuations: # 全てのpuncluationを区別せずにカウントする
                     cnt += v
             ret.append(cnt)
-        ret = pd.DataFrame({'punct_cnt': ret})
+        ret = pd.DataFrame({'punct_cnt': ret}) # ここで含まれるカラムは1つのみ
         return ret
 
     def get_input_words(self, df):
+        # =>はactivityがReplaceの時のみ出現する
         tmp_df = df[(~df['text_change'].str.contains('=>'))&(df['text_change'] != 'NoChange')].reset_index(drop=True)
         tmp_df = tmp_df.groupby('id').agg({'text_change': list}).reset_index()
+
+        # この集計はactivityが'Remove/Cut'や'Move'のときを正しく考慮していない
         tmp_df['text_change'] = tmp_df['text_change'].apply(lambda x: ''.join(x))
         tmp_df['text_change'] = tmp_df['text_change'].apply(lambda x: re.findall(r'q+', x))
         tmp_df['input_word_count'] = tmp_df['text_change'].apply(len)
@@ -384,17 +339,17 @@ class Preprocessor:
                 feats = feats.merge(tmp_df, on='id', how='left')
 
         print("Engineering activity counts data")
-        tmp_df = self.activity_counts(df)
+        tmp_df = self.get_count(df, 'activity', self.activities)
         feats = pd.concat([feats, tmp_df], axis=1)
         
         print("Engineering event counts data")
-        tmp_df = self.event_counts(df, 'down_event')
+        tmp_df = self.get_count(df, 'down_event', self.events)
         feats = pd.concat([feats, tmp_df], axis=1)
-        tmp_df = self.event_counts(df, 'up_event')
+        tmp_df = self.get_count(df, 'up_event', self.events)
         feats = pd.concat([feats, tmp_df], axis=1)
         
         print("Engineering text change counts data")
-        tmp_df = self.text_change_counts(df)
+        tmp_df = self.get_count(df, 'text_change', self.text_changes)
         feats = pd.concat([feats, tmp_df], axis=1)
         
         print("Engineering punctuation counts data")
@@ -473,6 +428,7 @@ class Runner():
         test_paragraph_agg_df = compute_paragraph_aggregations(split_essays_into_paragraphs(test_essays))
 
         self.logger.info('Start creating features based on logs.')
+        # 255カラムが作られるっぽい
         preprocessor = Preprocessor(seed=42)
         train_feats = preprocessor.make_feats(self.train_logs)
         nan_cols = train_feats.columns[train_feats.isna().any()].tolist()
@@ -482,6 +438,7 @@ class Runner():
         test_feats = preprocessor.make_feats(self.test_logs)
         test_feats = test_feats.drop(columns=nan_cols)
 
+        # ここで45カラム作られるが、preprocessorと重なっていてあまり意味なさそうかも？
         train_agg_fe_df = self.train_logs.groupby("id")[['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']].agg(
             ['mean', 'std', 'min', 'max', 'last', 'first', 'sem', 'median', 'sum'])
         train_agg_fe_df.columns = ['_'.join(x) for x in train_agg_fe_df.columns]
@@ -499,6 +456,7 @@ class Runner():
 
         data = []
 
+        # 9カラム
         for logs in [self.train_logs, self.test_logs]:
             logs['up_time_lagged'] = logs.groupby('id')['up_time'].shift(1).fillna(logs['down_time'])
             logs['time_diff'] = abs(logs['down_time'] - logs['up_time_lagged']) / 1000
@@ -534,7 +492,6 @@ class Runner():
         train_feats = train_feats.merge(self.train_scores, on='id', how='left')
 
         # Adding the additional features to the original feature set
-
         train_feats = train_feats.merge(train_word_agg_df, on='id', how='left')
         train_feats = train_feats.merge(train_sent_agg_df, on='id', how='left')
         train_feats = train_feats.merge(train_paragraph_agg_df, on='id', how='left')
@@ -550,6 +507,7 @@ class Runner():
     def train(self,):
 
         if RCFG.debug:
+            self.logger('Debug mode. Decrease training time.')
             RCFG.cnt_seed = 2
             RCFG.n_splits = 3
 
