@@ -371,8 +371,7 @@ class Runner():
 
         if mode == 'train':
             self.nan_cols = feats.columns[feats.isna().any()].tolist()
-        
-        feats = feats.drop(columns=self.nan_cols)
+            feats = feats.drop(columns=self.nan_cols)
 
         # 45カラム（preprocessと重なりが多そう）
         agg_fe_df = df.groupby("id")[['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']].agg(
@@ -523,6 +522,7 @@ class Runner():
             with open(f'{ENV.model_dir}models_dict.pickle', 'rb') as f:
                 self.models_dict = pickle.load(f)
         
+        self.logger.info('Start prediction.')
         test_predict_list = []
         for i in range(RCFG.cnt_seed): 
             for fold in range(RCFG.n_splits):
@@ -532,6 +532,7 @@ class Runner():
                 test_predict = model.predict(X_test)
                 test_predict_list.append(test_predict)
         
+        self.logger.info('Save submission.csv')
         self.test_feats['score'] = np.mean(test_predict_list, axis=0)
         self.test_feats[['id', 'score']].to_csv("submission.csv", index=False)
 
