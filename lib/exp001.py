@@ -410,7 +410,11 @@ class Runner():
             target_id = self.train_logs['id'].unique()[:RCFG.debug_size]
             self.train_logs = self.train_logs[self.train_logs['id'].isin(target_id)]
     
-    def _add_features(self, df, df_essay):
+    def _add_features(self,
+        df, 
+        df_essay,
+        mode = 'train'
+    ):
 
         # 22カラム
         word_df = split_essays_into_words(df_essay)
@@ -427,8 +431,11 @@ class Runner():
         # 286カラム
         preprocessor = Preprocessor(seed=42)
         feats = preprocessor.make_feats(df)
-        nan_cols = feats.columns[feats.isna().any()].tolist()
-        feats = feats.drop(columns=nan_cols)
+
+        if mode == 'train':
+            self.nan_cols = feats.columns[feats.isna().any()].tolist()
+        
+        feats = feats.drop(columns=self.nan_cols)
 
         # 45カラム（preprocessと重なりが多そう）
         agg_fe_df = df.groupby("id")[['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']].agg(
