@@ -47,7 +47,6 @@ class RCFG:
 
 
 # Function to construct essays copied from here (small adjustments): https://www.kaggle.com/code/yuriao/fast-essay-constructor
-
 def processingInputs(currTextInput):
     essayText = ""
     for Input in currTextInput.values:
@@ -192,6 +191,7 @@ def compute_paragraph_aggregations(df):
     paragraph_agg_df = paragraph_agg_df.rename(columns={"paragraph_len_count":"paragraph_count"})
     return paragraph_agg_df
 
+
 class Preprocessor:
     
     def __init__(self, seed):
@@ -206,6 +206,7 @@ class Preprocessor:
         self.gaps = [1, 2, 3, 5, 10, 20, 50, 100]
         
         self.idf = defaultdict(float)
+
 
     def _get_count_dataframe(self, df, colname, target_list):
         """
@@ -251,6 +252,7 @@ class Preprocessor:
 
         return ret
     
+
     def get_count(self, df, colname, target_list):
         ret = self._get_count_dataframe(df, colname, target_list)
         return self._tf_idf_transform(df, ret)
@@ -270,6 +272,7 @@ class Preprocessor:
         ret = pd.DataFrame({'punct_cnt': ret}) # ここで含まれるカラムは1つのみ
         return ret
 
+
     def get_input_words(self, df):
         # =>はactivityがReplaceの時のみ出現する
         tmp_df = df[(~df['text_change'].str.contains('=>'))&(df['text_change'] != 'NoChange')].reset_index(drop=True)
@@ -285,6 +288,7 @@ class Preprocessor:
         tmp_df.drop(['text_change'], axis=1, inplace=True)
         return tmp_df
     
+
     def make_feats(self, df):
         
         feats = pd.DataFrame({'id': df['id'].unique().tolist()})
@@ -488,7 +492,7 @@ class Runner():
     def train(self,):
 
         if RCFG.debug:
-            self.logger('Debug mode. Decrease training time.')
+            self.logger.info('Debug mode. Decrease training time.')
             RCFG.cnt_seed = 2
             RCFG.n_splits = 3
 
