@@ -42,6 +42,8 @@ class RCFG:
     cnt_seed = 5
     base_seed = 42
     n_splits = 10
+    preprocess_train = False
+    predict = False
 
 
 # Function to construct essays copied from here (small adjustments): https://www.kaggle.com/code/yuriao/fast-essay-constructor
@@ -403,111 +405,85 @@ class Runner():
             self.logger.info(f'Debug mode. Get only first {RCFG.debug_size} ids.')
             target_id = self.train_logs['id'].unique()[:RCFG.debug_size]
             self.train_logs = self.train_logs[self.train_logs['id'].isin(target_id)]
+    
+    def _add_features(self, df, df_essay):
+
+        # 22カラム
+        word_df = split_essays_into_words(df_essay)
+        word_agg_df = compute_word_aggregations(word_df)
+
+        # 31カラム
+        sent_df = split_essays_into_sentences(df_essay)
+        sent_agg_df = compute_sentence_aggregations(sent_df)
+
+        # 27カラム
+        paragraph_df = split_essays_into_paragraphs(df_essay)
+        paragraph_agg_df = compute_paragraph_aggregations(paragraph_df)
+
+        # 286カラム
+        preprocessor = Preprocessor(seed=42)
+        feats = preprocessor.make_feats(df)
+        nan_cols = feats.columns[feats.isna().any()].tolist()
+        feats = feats.drop(columns=nan_cols)
+
+        # 45カラム（preprocessと重なりが多そう）
+        agg_fe_df = df.groupby("id")[['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']].agg(
+            ['mean', 'std', 'min', 'max', 'last', 'first', 'sem', 'median', 'sum']
+        )
+        agg_fe_df.columns = ['_'.join(x) for x in agg_fe_df.columns]
+        agg_fe_df = agg_fe_df.add_prefix("tmp_")
+        agg_fe_df.reset_index(inplace=True)
+
+        # 9カラム
+        df['up_time_lagged'] = df.groupby('id')['up_time'].shift(1).fillna(df['down_time'])
+        df['time_diff'] = abs(df['down_time'] - df['up_time_lagged']) / 1000
+        group = df.groupby('id')['time_diff']
+        largest_lantency = group.max()
+        smallest_lantency = group.min()
+        median_lantency = group.median()
+        initial_pause = df.groupby('id')['down_time'].first() / 1000
+        pauses_half_sec = group.apply(lambda x: ((x > 0.5) & (x < 1)).sum())
+        pauses_1_sec = group.apply(lambda x: ((x > 1) & (x < 1.5)).sum())
+        pauses_1_half_sec = group.apply(lambda x: ((x > 1.5) & (x < 2)).sum())
+        pauses_2_sec = group.apply(lambda x: ((x > 2) & (x < 3)).sum())
+        pauses_3_sec = group.apply(lambda x: (x > 3).sum())
+
+        eD592674 = pd.DataFrame({
+            'id': df['id'].unique(),
+            'largest_lantency': largest_lantency,
+            'smallest_lantency': smallest_lantency,
+            'median_lantency': median_lantency,
+            'initial_pause': initial_pause,
+            'pauses_half_sec': pauses_half_sec,
+            'pauses_1_sec': pauses_1_sec,
+            'pauses_1_half_sec': pauses_1_half_sec,
+            'pauses_2_sec': pauses_2_sec,
+            'pauses_3_sec': pauses_3_sec,
+        }).reset_index(drop=True)
+
+        feats = feats.merge(agg_fe_df, on='id', how='left')
+        feats = feats.merge(eD592674, on='id', how='left')
+        feats = feats.merge(word_agg_df, on='id', how='left')
+        feats = feats.merge(sent_agg_df, on='id', how='left')
+        feats = feats.merge(paragraph_agg_df, on='id', how='left')
+
+        return feats
 
 
     def preprocess(self,):
 
         self.logger.info('Start preprocessing.')
-
-        self.logger.info('Get essays of test data.')
-        test_essays = getEssays(self.test_logs)
-
-        self.logger.info('Start creating features based on sentences and paragraphs.')
-
-        # 22カラム
-        train_word_df = split_essays_into_words(self.train_essays)
-        train_word_agg_df = compute_word_aggregations(train_word_df)
-
-        # 31カラム
-        train_sent_df = split_essays_into_sentences(self.train_essays)
-        train_sent_agg_df = compute_sentence_aggregations(train_sent_df)
-
-        # 27カラム
-        train_paragraph_df = split_essays_into_paragraphs(self.train_essays)
-        train_paragraph_agg_df = compute_paragraph_aggregations(train_paragraph_df)
-
         
-        test_word_agg_df = compute_word_aggregations(split_essays_into_words(test_essays))
-        test_sent_agg_df = compute_sentence_aggregations(split_essays_into_sentences(test_essays))
-        test_paragraph_agg_df = compute_paragraph_aggregations(split_essays_into_paragraphs(test_essays))
+        if RCFG.preprocess_train:
+            self.logger.info('Prepprocess train data. Create features for train data.')
+            train_feats = self._add_features(self.train_logs, self.train_essays)
+            self.train_feats = train_feats.merge(self.train_scores, on='id', how='left')
 
-        self.logger.info('Start creating features based on logs.')
-        
-        # 286カラム
-        preprocessor = Preprocessor(seed=42)
-        train_feats = preprocessor.make_feats(self.train_logs)
-        nan_cols = train_feats.columns[train_feats.isna().any()].tolist()
-        train_feats = train_feats.drop(columns=nan_cols)
-        
-        preprocessor = Preprocessor(seed=42)
-        test_feats = preprocessor.make_feats(self.test_logs)
-        test_feats = test_feats.drop(columns=nan_cols)
-
-        # ここで45カラム作られるが、preprocessorと重なっていてあまり意味なさそうかも？
-        train_agg_fe_df = self.train_logs.groupby("id")[['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']].agg(
-            ['mean', 'std', 'min', 'max', 'last', 'first', 'sem', 'median', 'sum'])
-        train_agg_fe_df.columns = ['_'.join(x) for x in train_agg_fe_df.columns]
-        train_agg_fe_df = train_agg_fe_df.add_prefix("tmp_")
-        train_agg_fe_df.reset_index(inplace=True)
-
-        test_agg_fe_df = self.test_logs.groupby("id")[['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']].agg(
-            ['mean', 'std', 'min', 'max', 'last', 'first', 'sem', 'median', 'sum'])
-        test_agg_fe_df.columns = ['_'.join(x) for x in test_agg_fe_df.columns]
-        test_agg_fe_df = test_agg_fe_df.add_prefix("tmp_")
-        test_agg_fe_df.reset_index(inplace=True)
-
-        train_feats = train_feats.merge(train_agg_fe_df, on='id', how='left')
-        test_feats = test_feats.merge(test_agg_fe_df, on='id', how='left')
-
-        data = []
-
-        # 9カラム
-        for logs in [self.train_logs, self.test_logs]:
-            logs['up_time_lagged'] = logs.groupby('id')['up_time'].shift(1).fillna(logs['down_time'])
-            logs['time_diff'] = abs(logs['down_time'] - logs['up_time_lagged']) / 1000
-
-            group = logs.groupby('id')['time_diff']
-            largest_lantency = group.max()
-            smallest_lantency = group.min()
-            median_lantency = group.median()
-            initial_pause = logs.groupby('id')['down_time'].first() / 1000
-            pauses_half_sec = group.apply(lambda x: ((x > 0.5) & (x < 1)).sum())
-            pauses_1_sec = group.apply(lambda x: ((x > 1) & (x < 1.5)).sum())
-            pauses_1_half_sec = group.apply(lambda x: ((x > 1.5) & (x < 2)).sum())
-            pauses_2_sec = group.apply(lambda x: ((x > 2) & (x < 3)).sum())
-            pauses_3_sec = group.apply(lambda x: (x > 3).sum())
-
-            data.append(pd.DataFrame({
-                'id': logs['id'].unique(),
-                'largest_lantency': largest_lantency,
-                'smallest_lantency': smallest_lantency,
-                'median_lantency': median_lantency,
-                'initial_pause': initial_pause,
-                'pauses_half_sec': pauses_half_sec,
-                'pauses_1_sec': pauses_1_sec,
-                'pauses_1_half_sec': pauses_1_half_sec,
-                'pauses_2_sec': pauses_2_sec,
-                'pauses_3_sec': pauses_3_sec,
-            }).reset_index(drop=True))
-
-        train_eD592674, test_eD592674 = data
-
-        train_feats = train_feats.merge(train_eD592674, on='id', how='left')
-        test_feats = test_feats.merge(test_eD592674, on='id', how='left')
-        train_feats = train_feats.merge(self.train_scores, on='id', how='left')
-
-        # Adding the additional features to the original feature set
-        train_feats = train_feats.merge(train_word_agg_df, on='id', how='left')
-        train_feats = train_feats.merge(train_sent_agg_df, on='id', how='left')
-        train_feats = train_feats.merge(train_paragraph_agg_df, on='id', how='left')
-        test_feats = test_feats.merge(test_word_agg_df, on='id', how='left')
-        test_feats = test_feats.merge(test_sent_agg_df, on='id', how='left')
-        test_feats = test_feats.merge(test_paragraph_agg_df, on='id', how='left')
-
-        train_feats.to_csv(f'{ENV.output_dir}train_feats.csv', index=False)
-        self.train_feats = train_feats
-        self.test_feats = test_feats
-
+        if RCFG.predict:        
+            self.logger.info('Preprocess test data. Get essays of test data.')
+            test_essays = getEssays(self.test_logs)
+            self.logger.info('Create features for test data.')
+            self.test_feats = self._add_features(self.test_logs, test_essays)
 
     def train(self,):
 
