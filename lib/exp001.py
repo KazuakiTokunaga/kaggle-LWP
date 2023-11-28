@@ -428,6 +428,7 @@ class Runner():
             self.train_feats = train_feats.merge(self.train_scores, on='id', how='left')
             self.train_feats.to_csv(f'{ENV.output_dir}train_feats.csv', index=False)
         else:
+            self.logger.info(f'Load train data from {ENV.feature_dir}train_feats.csv.')
             self.train_feats = pd.read_csv(f'{ENV.feature_dir}train_feats.csv')
 
         if RCFG.predict:        
@@ -493,11 +494,17 @@ class Runner():
                 self.models_dict[f'{fold}_{i}'] = model
 
             oof_score = metrics.mean_squared_error(self.train_feats[target_col], oof_valid_preds, squared=False)
+            self.logger.info(f'oof score for seed {seed}: {oof_score}')
             self.scores.append(oof_score)
+        
+        cvscores = np.mean(self.scores)
+        self.logger.info(f'CV score: {cvscores}')
+        self.data_to_write.append(cvscores)
+        self.data_to_write += self.scores
 
         # self.models_dictをpickleで保存
         with open(f'{ENV.output_dir}models_dict.pickle', 'wb') as f:
-            self.logger(f'save models_dict to {ENV.output_dir}models_dict.pickle')
+            self.logger.info(f'save models_dict to {ENV.output_dir}models_dict.pickle')
             pickle.dump(self.models_dict, f)
 
 
@@ -505,7 +512,7 @@ class Runner():
         self.logger.info('Write scores to google sheet.')
 
         nowstr_jst = str(datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime('%Y-%m-%d %H:%M:%S'))
-        data = [nowstr_jst, ENV.commit_hash, class_vars_to_dict(RCFG)] + self.scores
+        data = [nowstr_jst, ENV.commit_hash, class_vars_to_dict(RCFG)] + self.data_to_write
         self.sheet.write(data, sheet_name='cvscores')
     
 
