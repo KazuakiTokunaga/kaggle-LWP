@@ -47,7 +47,7 @@ class RCFG:
     n_splits = 10
     preprocess_train = False
     predict = False
-    load_model = True
+    load_model = False
 
 
 def q1(x):
