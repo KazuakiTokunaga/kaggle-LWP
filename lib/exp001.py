@@ -492,11 +492,11 @@ class Runner():
                 oof_valid_preds[valid_idx] = valid_predict
                 self.models_dict[f'{fold}_{i}'] = model
 
-            oof_score = metrics.mean_squared_error(self.train_feats[target_col], oof_valid_preds, squared=False)
+            oof_score = np.round(metrics.mean_squared_error(self.train_feats[target_col], oof_valid_preds, squared=False), 6)
             self.logger.info(f'oof score for seed {seed}: {oof_score}')
             self.scores.append(oof_score)
         
-        cvscores = np.mean(self.scores)
+        cvscores = np.round(np.mean(self.scores), 6)
         self.logger.info(f'CV score: {cvscores}')
         self.data_to_write.append(cvscores)
         self.data_to_write += self.scores
