@@ -250,7 +250,7 @@ class Preprocessor:
         return ret
     
     def get_count(self, df, colname, target_list):
-        ret = self._get_count_dataframe(df, 'activity', self.activities)
+        ret = self._get_count_dataframe(df, colname, target_list)
         return self._tf_idf_transform(df, ret)
 
 
@@ -413,12 +413,16 @@ class Runner():
         test_essays = getEssays(self.test_logs)
 
         self.logger.info('Start creating features based on sentences and paragraphs.')
+
+        # 22カラム
         train_word_df = split_essays_into_words(self.train_essays)
         train_word_agg_df = compute_word_aggregations(train_word_df)
 
+        # 31カラム
         train_sent_df = split_essays_into_sentences(self.train_essays)
         train_sent_agg_df = compute_sentence_aggregations(train_sent_df)
 
+        # 27カラム
         train_paragraph_df = split_essays_into_paragraphs(self.train_essays)
         train_paragraph_agg_df = compute_paragraph_aggregations(train_paragraph_df)
 
@@ -428,7 +432,8 @@ class Runner():
         test_paragraph_agg_df = compute_paragraph_aggregations(split_essays_into_paragraphs(test_essays))
 
         self.logger.info('Start creating features based on logs.')
-        # 255カラムが作られるっぽい
+        
+        # 286カラム
         preprocessor = Preprocessor(seed=42)
         train_feats = preprocessor.make_feats(self.train_logs)
         nan_cols = train_feats.columns[train_feats.isna().any()].tolist()
