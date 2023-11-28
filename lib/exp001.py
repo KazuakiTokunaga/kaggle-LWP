@@ -27,6 +27,8 @@ from utils.essay import getEssays
 
 class ENV:
     input_dir = "/kaggle/input/"
+    feature_dir = "./"
+    model_dir = "./"
     output_dir = "./"
     commit_hash = ""
     save_to_sheet = True
@@ -45,6 +47,7 @@ class RCFG:
     n_splits = 10
     preprocess_train = False
     predict = False
+    load_model = True
 
 
 def q1(x):
@@ -423,6 +426,9 @@ class Runner():
             self.logger.info('Prepprocess train data. Create features for train data.')
             train_feats = self._add_features(self.train_logs, self.train_essays, mode='train')
             self.train_feats = train_feats.merge(self.train_scores, on='id', how='left')
+            self.train_feats.to_csv(f'{ENV.output_dir}train_feats.csv', index=False)
+        else:
+            self.train_feats = pd.read_csv(f'{ENV.feature_dir}train_feats.csv')
 
         if RCFG.predict:        
             self.logger.info('Preprocess test data. Get essays of test data.')
@@ -489,6 +495,11 @@ class Runner():
             oof_score = metrics.mean_squared_error(self.train_feats[target_col], oof_valid_preds, squared=False)
             self.scores.append(oof_score)
 
+        # self.models_dictをpickleで保存
+        with open(f'{ENV.output_dir}models_dict.pickle', 'wb') as f:
+            self.logger(f'save models_dict to {ENV.output_dir}models_dict.pickle')
+            pickle.dump(self.models_dict, f)
+
 
     def write_sheet(self, ):
         self.logger.info('Write scores to google sheet.')
@@ -500,6 +511,11 @@ class Runner():
 
     def predict(self, ):
 
+        if RCFG.load_model:
+            self.logger.info('Load LightGBM model.')
+            with open(f'{ENV.model_dir}models_dict.pickle', 'rb') as f:
+                self.models_dict = pickle.load(f)
+        
         test_predict_list = []
         for i in range(RCFG.cnt_seed): 
             for fold in range(RCFG.n_splits):
