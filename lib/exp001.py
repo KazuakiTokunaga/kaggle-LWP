@@ -508,18 +508,18 @@ class Runner():
     
     def calculate_feature_importance(self, ):
             
-            self.logger.info('Calculate feature importance.')
-            self.train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id']]
-            feature_importance_df = pd.DataFrame()
-            for fold in range(RCFG.n_splits):
-                model = self.models_dict[f'{fold}_0']
-                fold_importance_df = pd.DataFrame()
-                fold_importance_df["feature"] = self.train_cols
-                fold_importance_df["importance"] = model.feature_importances_
-                fold_importance_df["fold"] = fold
-                feature_importance_df = pd.concat([feature_importance_df, fold_importance_df], axis=0)
-            self.feature_importance_df = feature_importance_df.groupby("feature").mean().sort_values(by="importance", ascending=False).reset_index()
-            self.feature_importance_df.to_csv(f'{ENV.output_dir}feature_importance.csv', index=False)
+        self.logger.info('Calculate feature importance.')
+        self.train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id']]
+        feature_importance_df = pd.DataFrame()
+        for fold in range(RCFG.n_splits):
+            model = self.models_dict[f'{fold}_0']
+            fold_importance_df = pd.DataFrame()
+            fold_importance_df["feature"] = self.train_cols
+            fold_importance_df["importance"] = model.feature_importances_
+            fold_importance_df["fold"] = fold
+            feature_importance_df = pd.concat([feature_importance_df, fold_importance_df], axis=0)
+        self.feature_importance_df = feature_importance_df.groupby("feature").mean().sort_values(by="importance", ascending=False).reset_index()
+        self.feature_importance_df.to_csv(f'{ENV.output_dir}feature_importance.csv', index=False)
 
 
     def write_sheet(self, ):
