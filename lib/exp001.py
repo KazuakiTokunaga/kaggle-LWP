@@ -461,7 +461,7 @@ class Runner():
             'min_child_samples': 18
         }
 
-        self.logger.info('Start training.')
+        self.logger.info(f'Start training. train_feats shape: {self.train_feats.shape}')
         for i in range(RCFG.cnt_seed): 
             seed = RCFG.base_seed + i
             self.logger.info(f'Start training for seed {seed}.')
