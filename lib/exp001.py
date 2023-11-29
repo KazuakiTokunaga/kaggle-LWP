@@ -445,7 +445,7 @@ class Runner():
 
         target_col = ['score']
         drop_cols = ['id']
-        train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id']]
+        self.train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id']]
 
         # Code comes from here: https://www.kaggle.com/code/abdullahmeda/enter-ing-the-timeseries-space-sec-3-new-aggs
         self.models_dict = {}
@@ -472,8 +472,8 @@ class Runner():
             for fold, (train_idx, valid_idx) in enumerate(kf.split(self.train_feats)):
                 self.logger.info(f'Start training for fold {fold}.')
                 
-                X_train, y_train = self.train_feats.iloc[train_idx][train_cols], self.train_feats.iloc[train_idx][target_col]
-                X_valid, y_valid = self.train_feats.iloc[valid_idx][train_cols], self.train_feats.iloc[valid_idx][target_col]
+                X_train, y_train = self.train_feats.iloc[train_idx][self.train_cols], self.train_feats.iloc[train_idx][target_col]
+                X_valid, y_valid = self.train_feats.iloc[valid_idx][self.train_cols], self.train_feats.iloc[valid_idx][target_col]
                 params = {
                     "objective": "regression",
                     "metric": "rmse",
@@ -505,6 +505,21 @@ class Runner():
         with open(f'{ENV.output_dir}models_dict.pickle', 'wb') as f:
             self.logger.info(f'save models_dict to {ENV.output_dir}models_dict.pickle')
             pickle.dump(self.models_dict, f)
+    
+    def calculate_feature_importance(self, ):
+            
+            self.logger.info('Calculate feature importance.')
+            self.train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id']]
+            feature_importance_df = pd.DataFrame()
+            for fold in range(RCFG.n_splits):
+                model = self.models_dict[f'{fold}_0']
+                fold_importance_df = pd.DataFrame()
+                fold_importance_df["feature"] = self.train_cols
+                fold_importance_df["importance"] = model.feature_importances_
+                fold_importance_df["fold"] = fold
+                feature_importance_df = pd.concat([feature_importance_df, fold_importance_df], axis=0)
+            self.feature_importance_df = feature_importance_df.groupby("feature").mean().sort_values(by="importance", ascending=False).reset_index()
+            self.feature_importance_df.to_csv(f'{ENV.output_dir}feature_importance.csv', index=False)
 
 
     def write_sheet(self, ):
