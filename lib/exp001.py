@@ -48,6 +48,7 @@ class RCFG:
     preprocess_train = False
     predict = False
     load_model = False
+    select_feature = True
 
 
 def q1(x):
@@ -445,7 +446,7 @@ class Runner():
 
         target_col = ['score']
         drop_cols = ['id']
-        self.train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id']]
+        self.train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id', 'fold']]
 
         # Code comes from here: https://www.kaggle.com/code/abdullahmeda/enter-ing-the-timeseries-space-sec-3-new-aggs
         self.models_dict = {}
@@ -461,23 +462,30 @@ class Runner():
             'min_child_samples': 18
         }
 
+        
+        kf = model_selection.KFold(n_splits=RCFG.n_splits, random_state= 1030, shuffle=True)
+        for fold, (_, valid_idx) in enumerate(kf.split(self.train_feats)):
+            self.train_feats.loc[valid_idx, 'fold'] = fold
+
         self.logger.info(f'Start training. train_feats shape: {self.train_feats.shape}')
         for i in range(RCFG.cnt_seed): 
             seed = RCFG.base_seed + i
             self.logger.info(f'Start training for seed {seed}.')
-
-            kf = model_selection.KFold(n_splits=RCFG.n_splits, random_state= seed, shuffle=True)
+            
             oof_valid_preds = np.zeros(self.train_feats.shape[0])
             
-            for fold, (train_idx, valid_idx) in enumerate(kf.split(self.train_feats)):
+            for fold in range(RCFG.n_splits):
+
                 self.logger.info(f'Start training for fold {fold}.')
+                train_idx = self.train_feats[self.train_feats['fold'] != fold].index
+                valid_idx = self.train_feats[self.train_feats['fold'] == fold].index
                 
                 X_train, y_train = self.train_feats.iloc[train_idx][self.train_cols], self.train_feats.iloc[train_idx][target_col]
                 X_valid, y_valid = self.train_feats.iloc[valid_idx][self.train_cols], self.train_feats.iloc[valid_idx][target_col]
                 params = {
                     "objective": "regression",
                     "metric": "rmse",
-                    'random_state': 42,
+                    'random_state': 42 + seed,
                     "n_estimators" : 12001,
                     "verbosity": -1,
                     **best_params
@@ -495,6 +503,61 @@ class Runner():
             oof_score = np.round(metrics.mean_squared_error(self.train_feats[target_col], oof_valid_preds, squared=False), 6)
             self.logger.info(f'oof score for seed {seed}: {oof_score}')
             self.scores.append(oof_score)
+
+        self.logger.info('Calculate feature importance.')
+        self.train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id']]
+        self.feature_importance_df = pd.DataFrame()
+        for fold in range(RCFG.n_splits):
+            model = self.models_dict[f'{fold}_0']
+            fold_importance_df = pd.DataFrame()
+            fold_importance_df["feature"] = self.train_cols
+            fold_importance_df["importance"] = model.feature_importances_
+            fold_importance_df["fold"] = fold
+            self.feature_importance_df = pd.concat([self.feature_importance_df, fold_importance_df], axis=0)
+        self.feature_importance_df.to_csv(f'{ENV.output_dir}feature_importance.csv', index=False)
+
+
+        if RCFG.select_feature:
+            self.logger.info('Retrain LightGBM with selected features.')
+            for i in range(RCFG.cnt_seed):
+                seed = RCFG.base_seed + i
+
+                oof_valid_preds = np.zeros(self.train_feats.shape[0])
+                for fold in range(RCFG.n_splits):
+                    self.logger.info(f'Start training for fold {fold}.')
+
+                    # feature_importanceで上位200位の特徴量だけを用いる
+                    feature_df = self.feature_importance_df[self.feature_importance_df['fold'] == fold].groupby('feature').mean().reset_index()
+                    feature_col = feature_df.sort_values(by="importance", ascending=False).head(200)['feature'].tolist()
+                    if i == 0:
+                        self.logger.info(f'feature_col: {len(feature_col)}')
+
+                    train_idx = self.train_feats[self.train_feats['fold'] != fold].index
+                    valid_idx = self.train_feats[self.train_feats['fold'] == fold].index
+                    X_train, y_train = self.train_feats.iloc[train_idx][feature_col], self.train_feats.iloc[train_idx][target_col]
+                    X_valid, y_valid = self.train_feats.iloc[valid_idx][feature_col], self.train_feats.iloc[valid_idx][target_col]
+
+                    params = {
+                        "objective": "regression",
+                        "metric": "rmse",
+                        'random_state': 42 + seed,
+                        "n_estimators" : 12001,
+                        "verbosity": -1,
+                        **best_params
+                    }
+                    model = lgb.LGBMRegressor(**params)
+                    early_stopping_callback = lgb.early_stopping(200, first_metric_only=True, verbose=False)
+                    verbose_callback = lgb.log_evaluation(100)
+                    model.fit(X_train, y_train, eval_set=[(X_valid, y_valid)],  
+                            callbacks=[early_stopping_callback, verbose_callback],
+                    )
+                    valid_predict = model.predict(X_valid)
+                    oof_valid_preds[valid_idx] = valid_predict
+                    self.models_dict[f'{fold}_{i}'] = model
+
+                oof_score = np.round(metrics.mean_squared_error(self.train_feats[target_col], oof_valid_preds, squared=False), 6)
+                self.logger.info(f'oof score for seed {seed}: {oof_score}')
+                self.scores.append(oof_score)
         
         cvscores = np.round(np.mean(self.scores), 6)
         self.logger.info(f'CV score: {cvscores}')
@@ -506,21 +569,6 @@ class Runner():
             self.logger.info(f'save models_dict to {ENV.output_dir}models_dict.pickle')
             pickle.dump(self.models_dict, f)
     
-    def calculate_feature_importance(self, ):
-            
-        self.logger.info('Calculate feature importance.')
-        self.train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id']]
-        feature_importance_df = pd.DataFrame()
-        for fold in range(RCFG.n_splits):
-            model = self.models_dict[f'{fold}_0']
-            fold_importance_df = pd.DataFrame()
-            fold_importance_df["feature"] = self.train_cols
-            fold_importance_df["importance"] = model.feature_importances_
-            fold_importance_df["fold"] = fold
-            feature_importance_df = pd.concat([feature_importance_df, fold_importance_df], axis=0)
-        self.feature_importance_df = feature_importance_df.groupby("feature").mean().sort_values(by="importance", ascending=False).reset_index()
-        self.feature_importance_df.to_csv(f'{ENV.output_dir}feature_importance.csv', index=False)
-
 
     def write_sheet(self, ):
         self.logger.info('Write scores to google sheet.')
