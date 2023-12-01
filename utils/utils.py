@@ -62,7 +62,7 @@ def get_commit_hash(repo_path='/kaggle/working/kaggle-LWP'):
     return hash_value
 
 
-def add_random_features(df, n=31):
+def add_random_feature(df, n=31):
     
     height = df.shape[0]
     data = np.random.randint(1, 1000, size=(height, n))
