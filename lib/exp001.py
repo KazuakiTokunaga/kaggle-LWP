@@ -504,6 +504,10 @@ class Runner():
             self.logger.info(f'oof score for seed {seed}: {oof_score}')
             self.scores.append(oof_score)
 
+        self.cvscore = np.round(np.mean(self.scores), 6)
+        self.logger.info(f'CV score: {self.cvscore}')
+        self.data_to_write += self.scores.copy() + [self.cvscore]
+
         self.logger.info('Calculate feature importance.')
         self.train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id']]
         self.feature_importance_df = pd.DataFrame()
@@ -516,9 +520,9 @@ class Runner():
             self.feature_importance_df = pd.concat([self.feature_importance_df, fold_importance_df], axis=0)
         self.feature_importance_df.to_csv(f'{ENV.output_dir}feature_importance.csv', index=False)
 
-
         if RCFG.select_feature:
             self.logger.info('Retrain LightGBM with selected features.')
+            self.scores = []
             for i in range(RCFG.cnt_seed):
                 seed = RCFG.base_seed + i
 
@@ -559,10 +563,9 @@ class Runner():
                 self.logger.info(f'oof score for seed {seed}: {oof_score}')
                 self.scores.append(oof_score)
         
-        cvscores = np.round(np.mean(self.scores), 6)
-        self.logger.info(f'CV score: {cvscores}')
-        self.data_to_write.append(cvscores)
-        self.data_to_write += self.scores
+        self.cvscore = np.round(np.mean(self.scores), 6)
+        self.logger.info(f'CV score: {self.cvscore}')
+        self.data_to_write += self.scores.copy() + [self.cvscore]
 
         # self.models_dictをpickleで保存
         with open(f'{ENV.output_dir}models_dict.pickle', 'wb') as f:
