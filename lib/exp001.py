@@ -52,6 +52,20 @@ class RCFG:
     use_feature_rank = 200
     use_random_features = True
     threshold_random_features = 15
+    lgbm_params = {
+        "objective": "regression",
+        "metric": "rmse",
+        'random_state': 42,
+        "n_estimators" : 12001,
+        "verbosity": -1,
+        'reg_lambda': 0.3, 
+        'colsample_bytree': 0.8, 
+        'subsample': 0.8,
+        'learning_rate': 0.1, 
+        'num_leaves': 22, 
+        'max_depth': 6, 
+        'min_child_samples': 18
+    }
 
 
 def q1(x):
@@ -458,16 +472,7 @@ class Runner():
         # Code comes from here: https://www.kaggle.com/code/abdullahmeda/enter-ing-the-timeseries-space-sec-3-new-aggs
         self.models_dict = {}
         self.scores = []
-        best_params = {
-            'reg_alpha': 0.007678095440286993, 
-            'reg_lambda': 0.34230534302168353, 
-            'colsample_bytree': 0.627061253588415, 
-            'subsample': 0.854942238828458, 
-            'learning_rate': 0.038697981947473245, 
-            'num_leaves': 22, 
-            'max_depth': 37, 
-            'min_child_samples': 18
-        }
+        params = RCFG.lgbm_params
         
         kf = model_selection.KFold(n_splits=RCFG.n_splits, random_state= 1030, shuffle=True)
         for fold, (_, valid_idx) in enumerate(kf.split(self.train_feats)):
@@ -488,14 +493,10 @@ class Runner():
                 
                 X_train, y_train = self.train_feats.iloc[train_idx][self.train_cols], self.train_feats.iloc[train_idx][target_col]
                 X_valid, y_valid = self.train_feats.iloc[valid_idx][self.train_cols], self.train_feats.iloc[valid_idx][target_col]
-                params = {
-                    "objective": "regression",
-                    "metric": "rmse",
-                    'random_state': 42 + seed,
-                    "n_estimators" : 12001,
-                    "verbosity": -1,
-                    **best_params
-                }
+                
+                params['random_state'] = 42 * fold + seed
+                params['learning_rate'] = 0.1
+
                 model = lgb.LGBMRegressor(**params)
                 early_stopping_callback = lgb.early_stopping(200, first_metric_only=True, verbose=False)
                 verbose_callback = lgb.log_evaluation(100)
@@ -561,14 +562,9 @@ class Runner():
                     X_train, y_train = self.train_feats.iloc[train_idx][feature_col], self.train_feats.iloc[train_idx][target_col]
                     X_valid, y_valid = self.train_feats.iloc[valid_idx][feature_col], self.train_feats.iloc[valid_idx][target_col]
 
-                    params = {
-                        "objective": "regression",
-                        "metric": "rmse",
-                        'random_state': 42 + seed,
-                        "n_estimators" : 12001,
-                        "verbosity": -1,
-                        **best_params
-                    }
+                    params['random_state'] = 42 * fold + seed
+                    params['learning_rate'] = 0.02
+                    
                     model = lgb.LGBMRegressor(**params)
                     early_stopping_callback = lgb.early_stopping(200, first_metric_only=True, verbose=False)
                     verbose_callback = lgb.log_evaluation(100)
