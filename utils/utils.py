@@ -3,6 +3,8 @@ import os
 import subprocess
 import json
 import datetime
+import numpy as np
+import pandas as pd
 from pynvml import nvmlInit, nvmlDeviceGetHandleByIndex, nvmlDeviceGetMemoryInfo
 from oauth2client.service_account import ServiceAccountCredentials
 
@@ -58,6 +60,17 @@ def get_commit_hash(repo_path='/kaggle/working/kaggle-LWP'):
     os.chdir(wd)
 
     return hash_value
+
+
+def add_random_feature(df, n=31):
+    
+    height = df.shape[0]
+    data = np.random.randint(1, 1000, size=(height, n))
+
+    df_rand = pd.DataFrame(data, columns=[f'dummy_random{i}' for i in range(n)])    
+    df = pd.concat([df, df_rand], axis=1)
+    
+    return df
 
 
 def class_vars_to_dict(cls):

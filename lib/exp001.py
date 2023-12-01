@@ -22,6 +22,7 @@ import datetime
 
 from utils.utils import Logger, WriteSheet
 from utils.utils import class_vars_to_dict
+from utils.utils import add_random_feature
 from utils.essay import getEssays
 
 
@@ -44,11 +45,13 @@ class RCFG:
     seed_cv = 42
     cnt_seed = 5
     base_seed = 42
-    n_splits = 10
     preprocess_train = False
     predict = False
     load_model = False
     select_feature = True
+    use_feature_rank = 200
+    use_random_features = True
+    threshold_random_features = 15
 
 
 def q1(x):
@@ -462,6 +465,9 @@ class Runner():
             'min_child_samples': 18
         }
 
+        if RCFG.use_random_features:
+            self.logger.info('Add random features.')
+            self.train_feats = add_random_feature(self.train_feats)
         
         kf = model_selection.KFold(n_splits=RCFG.n_splits, random_state= 1030, shuffle=True)
         for fold, (_, valid_idx) in enumerate(kf.split(self.train_feats)):
@@ -493,8 +499,9 @@ class Runner():
                 model = lgb.LGBMRegressor(**params)
                 early_stopping_callback = lgb.early_stopping(200, first_metric_only=True, verbose=False)
                 verbose_callback = lgb.log_evaluation(100)
-                model.fit(X_train, y_train, eval_set=[(X_valid, y_valid)],  
-                        callbacks=[early_stopping_callback, verbose_callback],
+                model.fit(
+                    X_train, y_train, eval_set=[(X_valid, y_valid)],  
+                    callbacks=[early_stopping_callback, verbose_callback],
                 )
                 valid_predict = model.predict(X_valid)
                 oof_valid_preds[valid_idx] = valid_predict
@@ -531,7 +538,17 @@ class Runner():
 
                     # feature_importanceで上位200位の特徴量だけを用いる
                     feature_df = self.feature_importance_df[self.feature_importance_df['fold'] == fold].groupby('feature').mean().reset_index()
-                    feature_col = feature_df.sort_values(by="importance", ascending=False).head(200)['feature'].tolist()
+                    feature_df = feature_df.sort_values(by="importance", ascending=False)
+
+                    if RCFG.use_random_features:
+                        # dummy_randomから始まる特徴量のうち5番めの特徴量のindexを取得する
+                        dummy_random_idx = feature_df[feature_df['feature'].str.startswith('dummy_random')].index[RCFG.threshold_random_features]
+                        # dummy_random_idxより上位にある特徴量のみを取得する
+                        feature_col = feature_df[feature_df.index <= dummy_random_idx]['feature'].tolist()
+                        feature_col = [c for c in feature_col if not c.startswith('dummy_random')]
+                    else:
+                        feature_col = feature_df.head(RCFG.use_feature_rank)['feature'].tolist()
+                    
                     if i == 0:
                         self.logger.info(f'feature_col: {len(feature_col)}')
 
@@ -551,8 +568,9 @@ class Runner():
                     model = lgb.LGBMRegressor(**params)
                     early_stopping_callback = lgb.early_stopping(200, first_metric_only=True, verbose=False)
                     verbose_callback = lgb.log_evaluation(100)
-                    model.fit(X_train, y_train, eval_set=[(X_valid, y_valid)],  
-                            callbacks=[early_stopping_callback, verbose_callback],
+                    model.fit(
+                        X_train, y_train, eval_set=[(X_valid, y_valid)],  
+                        callbacks=[early_stopping_callback, verbose_callback],
                     )
                     valid_predict = model.predict(X_valid)
                     oof_valid_preds[valid_idx] = valid_predict
