@@ -65,6 +65,8 @@ def get_commit_hash(repo_path='/kaggle/working/kaggle-LWP'):
 def add_random_feature(df, n=31):
     
     height = df.shape[0]
+
+    np.random.seed(342)
     data = np.random.randint(1, 1000, size=(height, n))
 
     df_rand = pd.DataFrame(data, columns=[f'dummy_random{i}' for i in range(n)])    
