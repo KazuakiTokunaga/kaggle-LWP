@@ -507,6 +507,9 @@ class Runner():
                 oof_valid_preds[valid_idx] = valid_predict
                 self.models_dict[f'{fold}_{i}'] = model
 
+                rmse = np.round(metrics.mean_squared_error(y_valid, valid_predict, squared=False), 6)
+                self.logger.info(f'Seed {seed} fold {fold} rmse: {rmse}')
+
             oof_score = np.round(metrics.mean_squared_error(self.train_feats[target_col], oof_valid_preds, squared=False), 6)
             self.logger.info(f'oof score for seed {seed}: {oof_score}')
             self.scores.append(oof_score)
@@ -575,6 +578,9 @@ class Runner():
                     valid_predict = model.predict(X_valid)
                     oof_valid_preds[valid_idx] = valid_predict
                     self.models_dict[f'{fold}_{i}'] = model
+
+                    rmse = np.round(metrics.mean_squared_error(y_valid, valid_predict, squared=False), 6)
+                    self.logger.info(f'Seed {seed} fold {fold} rmse: {rmse}')
 
                 oof_score = np.round(metrics.mean_squared_error(self.train_feats[target_col], oof_valid_preds, squared=False), 6)
                 self.logger.info(f'oof score for seed {seed}: {oof_score}')
