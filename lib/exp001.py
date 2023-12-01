@@ -447,6 +447,10 @@ class Runner():
             RCFG.cnt_seed = 2
             RCFG.n_splits = 3
 
+        if RCFG.use_random_features:
+            self.logger.info('Add random features.')
+            self.train_feats = add_random_feature(self.train_feats)
+
         target_col = ['score']
         drop_cols = ['id']
         self.train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id', 'fold']]
@@ -464,10 +468,6 @@ class Runner():
             'max_depth': 37, 
             'min_child_samples': 18
         }
-
-        if RCFG.use_random_features:
-            self.logger.info('Add random features.')
-            self.train_feats = add_random_feature(self.train_feats)
         
         kf = model_selection.KFold(n_splits=RCFG.n_splits, random_state= 1030, shuffle=True)
         for fold, (_, valid_idx) in enumerate(kf.split(self.train_feats)):
