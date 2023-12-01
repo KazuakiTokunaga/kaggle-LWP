@@ -522,6 +522,7 @@ class Runner():
         self.feature_importance_df = pd.DataFrame()
         for fold in range(RCFG.n_splits):
             model = self.models_dict[f'{fold}_0']
+            model.importance_type = 'gain'
             fold_importance_df = pd.DataFrame()
             fold_importance_df["feature"] = self.train_cols
             fold_importance_df["importance"] = model.feature_importances_
