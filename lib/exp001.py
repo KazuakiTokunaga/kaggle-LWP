@@ -509,7 +509,6 @@ class Runner():
         self.data_to_write += self.scores.copy() + [self.cvscore]
 
         self.logger.info('Calculate feature importance.')
-        self.train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id']]
         self.feature_importance_df = pd.DataFrame()
         for fold in range(RCFG.n_splits):
             model = self.models_dict[f'{fold}_0']
