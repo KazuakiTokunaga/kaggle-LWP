@@ -508,7 +508,7 @@ class Runner():
                 self.models_dict[f'{fold}_{i}'] = model
 
                 rmse = np.round(metrics.mean_squared_error(y_valid, valid_predict, squared=False), 6)
-                self.logger.info(f'Seed {seed} fold {fold} rmse: {rmse}')
+                self.logger.info(f'Seed {seed} fold {fold} rmse: {rmse}, best iteration: {model.best_iteration_}')
 
             oof_score = np.round(metrics.mean_squared_error(self.train_feats[target_col], oof_valid_preds, squared=False), 6)
             self.logger.info(f'oof score for seed {seed}: {oof_score}')
@@ -541,8 +541,8 @@ class Runner():
                     self.logger.info(f'Start training for fold {fold}.')
 
                     # feature_importanceで上位200位の特徴量だけを用いる
-                    feature_df = self.feature_importance_df[self.feature_importance_df['fold'] == fold].groupby('feature').mean().reset_index()
-                    feature_df = feature_df.sort_values(by="importance", ascending=False)
+                    feature_df = self.feature_importance_df[self.feature_importance_df['fold'] == fold].groupby('feature').mean()
+                    feature_df = feature_df.sort_values(by="importance", ascending=False).reset_index()
 
                     if RCFG.use_random_features:
                         # dummy_randomから始まる特徴量のうち5番めの特徴量のindexを取得する
