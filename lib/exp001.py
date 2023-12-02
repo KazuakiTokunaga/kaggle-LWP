@@ -231,9 +231,10 @@ class Preprocessor:
         cols = []
         for c in ret.columns:
             if c in self.special_char_to_text.keys():
-                cols.append(self.special_char_to_text[c])
+                t = self.special_char_to_text[c]
+                cols.append(f'{colname}_{t}_count')
             else:
-                cols.append(c)
+                cols.append(f'{colname}_{c}_count')
         ret.columns = cols
     
         return ret
