@@ -316,26 +316,23 @@ class Preprocessor:
                 feats = feats.merge(tmp_df, on='id', how='left')
 
         print("Engineering activity counts data")
-        tmp_df = self.get_count(df, 'activity', self.activities)
-        feats = pd.concat([feats, tmp_df], axis=1)
+        activity_df = self.get_count(df, 'activity', self.activities)
         
         print("Engineering event counts data")
-        tmp_df = self.get_count(df, 'down_event', self.events)
-        feats = pd.concat([feats, tmp_df], axis=1)
-        tmp_df = self.get_count(df, 'up_event', self.events)
-        feats = pd.concat([feats, tmp_df], axis=1)
+        down_df = self.get_count(df, 'down_event', self.events)
+        
+        up_df = self.get_count(df, 'up_event', self.events)
         
         print("Engineering text change counts data")
-        tmp_df = self.get_count(df, 'text_change', self.text_changes)
-        feats = pd.concat([feats, tmp_df], axis=1)
+        text_change_df = self.get_count(df, 'text_change', self.text_changes)
         
         print("Engineering punctuation counts data")
-        tmp_df = self.match_punctuations(df)
-        feats = pd.concat([feats, tmp_df], axis=1)
+        punctuations_df = self.match_punctuations(df)
 
         print("Engineering input words data")
-        tmp_df = self.get_input_words(df)
-        feats = pd.merge(feats, tmp_df, on='id', how='left')
+        input_words_df = self.get_input_words(df)
+
+        feats = pd.concat([feats, activity_df, down_df, up_df, text_change_df, punctuations_df, input_words_df], axis=1)
 
         print("Engineering ratios data")
         feats['word_time_ratio'] = feats['word_count_max'] / feats['up_time_max']
