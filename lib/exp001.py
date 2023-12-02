@@ -328,11 +328,12 @@ class Preprocessor:
         print("Engineering punctuation counts data")
         punctuations_df = self.match_punctuations(df)
 
+        for df in [activity_df, down_df, up_df, text_change_df, punctuations_df]:
+            feats = pd.concat([feats, df], axis=1)
+
         print("Engineering input words data")
         input_words_df = self.get_input_words(df)
-
-        for df in [activity_df, down_df, up_df, text_change_df, punctuations_df, input_words_df]:
-            feats = pd.merge(feats, df, on='id', how='left')
+        feats = feats.merge(input_words_df, on='id', how='left')
 
         print("Engineering ratios data")
         feats = feats.copy()
