@@ -478,7 +478,7 @@ class Runner():
         self.models_dict = {}
         self.scores = []
         target_col = ['score']
-        train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id', 'fold']]
+        self.train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id', 'fold']]
         params = RCFG.lgbm_params
         last = False if mode == 'first' and RCFG.select_feature else True
 
@@ -497,19 +497,19 @@ class Runner():
                         # dummy_randomから始まる特徴量のうち5番めの特徴量のindexを取得する
                         dummy_random_idx = feature_df[feature_df['feature'].str.startswith('dummy_random')].index[RCFG.threshold_random_features]
                         # dummy_random_idxより上位にある特徴量のみを取得する
-                        train_col = feature_df[feature_df.index <= dummy_random_idx]['feature'].tolist()
-                        train_col = [c for c in train_col if not c.startswith('dummy_random')]
+                        self.train_cols = feature_df[feature_df.index <= dummy_random_idx]['feature'].tolist()
+                        self.train_cols = [c for c in self.train_cols if not c.startswith('dummy_random')]
                     else:
-                        train_col = feature_df.head(RCFG.use_feature_rank)['feature'].tolist()
+                        self.train_cols = feature_df.head(RCFG.use_feature_rank)['feature'].tolist()
                     if i == 0:
-                        self.logger.info(f'train_col: {len(train_col)}')
+                        self.logger.info(f'self.train_cols: {len(self.train_cols)}')
 
                 self.logger.info(f'Start training for fold {fold}.')
                 train_idx = self.train_feats[self.train_feats['fold'] != fold].index
                 valid_idx = self.train_feats[self.train_feats['fold'] == fold].index
                 
-                X_train, y_train = self.train_feats.iloc[train_idx][train_cols], self.train_feats.iloc[train_idx][target_col]
-                X_valid, y_valid = self.train_feats.iloc[valid_idx][train_cols], self.train_feats.iloc[valid_idx][target_col]
+                X_train, y_train = self.train_feats.iloc[train_idx][self.train_cols], self.train_feats.iloc[train_idx][target_col]
+                X_valid, y_valid = self.train_feats.iloc[valid_idx][self.train_cols], self.train_feats.iloc[valid_idx][target_col]
                 
                 params['random_state'] = 42 * fold + seed
                 params['learning_rate'] = 0.02 if last else 0.1
