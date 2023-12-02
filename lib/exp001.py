@@ -177,6 +177,35 @@ class Preprocessor:
         self.gaps = [1, 2, 3, 5, 10, 20, 50, 100]
         
         self.idf = defaultdict(float)
+        
+        # text_changes, punctuationsを含む特殊文字をテキストに変換する辞書
+        self.special_char_to_text = {
+            ' ': 'space',
+            '\n': 'enter',
+            '.': 'period',
+            ',': 'comma',
+            "'": 'apostrophe',
+            '"': 'quotation',
+            '-': 'hyphen',
+            ';': 'semicolon',
+            ':': 'colon',
+            '?': 'question',
+            '!': 'exclamation',
+            '<': 'less_than',
+            '>': 'greater_than',
+            '/': 'slash',
+            '\\': 'backslash',
+            '@': 'at',
+            '#': 'hash',
+            '$': 'dollar',
+            '%': 'percent',
+            '^': 'caret',
+            '&': 'ampersand',
+            '*': 'asterisk',
+            '(': 'left_parenthesis',
+            ')': 'right_parenthesis',
+            '_': 'underscore',
+        }
 
 
     def _get_count_dataframe(self, df, colname, target_list):
@@ -198,7 +227,13 @@ class Preprocessor:
                     di[k] = v
             ret.append(di)
         ret = pd.DataFrame(ret)
-        cols = [f'{colname}_{c}_count' for c in ret.columns]
+
+        cols = []
+        for c in ret.columns:
+            if c in self.special_char_to_text.keys():
+                cols.append(self.special_char_to_text[c])
+            else:
+                cols.append(c)
         ret.columns = cols
     
         return ret
