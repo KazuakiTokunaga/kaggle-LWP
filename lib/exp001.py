@@ -198,7 +198,7 @@ class Preprocessor:
                     di[k] = v
             ret.append(di)
         ret = pd.DataFrame(ret)
-        cols = [f'{colname}_{i}_count' for i in range(len(ret.columns))]
+        cols = [f'{colname}_{c}_count' for c in ret.columns]
         ret.columns = cols
     
         return ret
