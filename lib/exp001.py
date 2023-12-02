@@ -16,6 +16,7 @@ from itertools import cycle
 from scipy import stats
 from scipy.stats import skew, kurtosis
 from sklearn import metrics, model_selection, preprocessing, linear_model, ensemble, decomposition, tree
+from sklearn.feature_extraction.text import CountVectorizer
 import lightgbm as lgb
 import copy
 import datetime
@@ -42,7 +43,6 @@ class RCFG:
     debug = True
     debug_size = 100
     n_splits = 5
-    seed_cv = 42
     cnt_seed = 5
     base_seed = 42
     preprocess_train = False
@@ -87,11 +87,27 @@ def compute_word_aggregations(word_df):
     word_agg_df = word_df[['id','word_len']].groupby(['id']).agg(AGGREGATIONS)
     word_agg_df.columns = ['_'.join(x) for x in word_agg_df.columns]
     word_agg_df['id'] = word_agg_df.index
-    for word_l in [5, 6, 7, 8, 9, 10, 11, 12]:
-        word_agg_df[f'word_len_ge_{word_l}_count'] = word_df[word_df['word_len'] >= word_l].groupby(['id']).count().iloc[:, 0]
-        word_agg_df[f'word_len_ge_{word_l}_count'] = word_agg_df[f'word_len_ge_{word_l}_count'].fillna(0)
+    # for word_l in [5, 6, 7, 8, 9, 10, 11, 12]:
+    #     word_agg_df[f'word_len_ge_{word_l}_count'] = word_df[word_df['word_len'] >= word_l].groupby(['id']).count().iloc[:, 0]
+    #     word_agg_df[f'word_len_ge_{word_l}_count'] = word_agg_df[f'word_len_ge_{word_l}_count'].fillna(0)
     word_agg_df = word_agg_df.reset_index(drop=True)
     return word_agg_df
+
+
+def get_countvectorizer_features(df):
+
+    def get_ngram_df(df, ngram = (1,2), thre=0.03):
+
+        count_vectorizer = CountVectorizer(ngram_range=ngram, min_df=thre)
+        X_tokenizer_train = count_vectorizer.fit_transform(df['essay']).todense()
+        df_train_index = pd.Index(df['id'].unique(), name = 'id')
+        feature_names = count_vectorizer.get_feature_names_out()
+        return pd.DataFrame(data=X_tokenizer_train, index = df_train_index, columns=feature_names)
+    
+    df1 = get_ngram_df(df, ngram=(1,2), thre=0.03)
+    df2 = get_ngram_df(df, ngram=(3,3), thre=0.1)
+    return pd.concat([df1, df2], axis=1)
+
 
 def split_essays_into_sentences(df):
     essay_df = df
@@ -375,6 +391,9 @@ class Runner():
         word_df = split_essays_into_words(df_essay)
         word_agg_df = compute_word_aggregations(word_df)
 
+        # 700カラム
+        countvectorize_df = get_countvectorizer_features(df_essay)
+
         # 31カラム
         sent_df = split_essays_into_sentences(df_essay)
         sent_agg_df = compute_sentence_aggregations(sent_df)
@@ -431,6 +450,7 @@ class Runner():
         feats = feats.merge(word_agg_df, on='id', how='left')
         feats = feats.merge(sent_agg_df, on='id', how='left')
         feats = feats.merge(paragraph_agg_df, on='id', how='left')
+        feats = feats.merge(countvectorize_df, on='id', how='left')
 
         return feats
 
@@ -583,9 +603,9 @@ class Runner():
                 self.logger.info(f'oof score for seed {seed}: {oof_score}')
                 self.scores.append(oof_score)
         
-        self.cvscore = np.round(np.mean(self.scores), 6)
-        self.logger.info(f'CV score: {self.cvscore}')
-        self.data_to_write += self.scores.copy() + [self.cvscore]
+            self.cvscore = np.round(np.mean(self.scores), 6)
+            self.logger.info(f'CV score: {self.cvscore}')
+            self.data_to_write += self.scores.copy() + [self.cvscore]
 
         # self.models_dictをpickleで保存
         with open(f'{ENV.output_dir}models_dict.pickle', 'wb') as f:
