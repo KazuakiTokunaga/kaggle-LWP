@@ -328,8 +328,8 @@ class Preprocessor:
         print("Engineering punctuation counts data")
         punctuations_df = self.match_punctuations(df)
 
-        for df in [activity_df, down_df, up_df, text_change_df, punctuations_df]:
-            feats = pd.concat([feats, df], axis=1)
+        for tmp_df in [activity_df, down_df, up_df, text_change_df, punctuations_df]:
+            feats = pd.concat([feats, tmp_df], axis=1)
 
         print("Engineering input words data")
         input_words_df = self.get_input_words(df)
@@ -472,6 +472,8 @@ class Runner():
             test_essays = getEssays(self.test_logs)
             self.logger.info('Create features for test data.')
             self.test_feats = self._add_features(self.test_logs, test_essays, mode='predict')
+
+    def _
 
     def train(self,):
 
