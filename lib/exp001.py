@@ -67,32 +67,18 @@ class RCFG:
         'min_child_samples': 18
     }
 
-
-def q1(x):
+def q03(x):
+    return x.quantile(0.03)
+def q10(x):
+    return x.quantile(0.10)
+def q25(x):
     return x.quantile(0.25)
-def q3(x):
+def q75(x):
     return x.quantile(0.75)
-
-AGGREGATIONS = ['count', 'mean', 'min', 'max', 'first', 'last', 'sem', q1, 'median', q3, 'skew', pd.DataFrame.kurt, 'sum']
-
-def split_essays_into_words(df):
-    essay_df = df
-    essay_df['word'] = essay_df['essay'].apply(lambda x: re.split(' |\\n|\\.|\\?|\\!',x))
-    essay_df = essay_df.explode('word')
-    essay_df['word_len'] = essay_df['word'].apply(lambda x: len(x))
-    essay_df = essay_df[essay_df['word_len'] != 0]
-    return essay_df
-
-def compute_word_aggregations(word_df):
-    word_agg_df = word_df[['id','word_len']].groupby(['id']).agg(AGGREGATIONS)
-    word_agg_df.columns = ['_'.join(x) for x in word_agg_df.columns]
-    word_agg_df['id'] = word_agg_df.index
-    # for word_l in [5, 6, 7, 8, 9, 10, 11, 12]:
-    #     word_agg_df[f'word_len_ge_{word_l}_count'] = word_df[word_df['word_len'] >= word_l].groupby(['id']).count().iloc[:, 0]
-    #     word_agg_df[f'word_len_ge_{word_l}_count'] = word_agg_df[f'word_len_ge_{word_l}_count'].fillna(0)
-    word_agg_df = word_agg_df.reset_index(drop=True)
-    return word_agg_df
-
+def q90(x):
+    return x.quantile(0.90)
+def q97(x):
+    return x.quantile(0.97)
 
 def get_countvectorizer_features(df):
 
@@ -109,6 +95,23 @@ def get_countvectorizer_features(df):
     df2 = get_ngram_df(df, ngram=(3,3), thre=0.1)
     return pd.concat([df1, df2], axis=1)
 
+def split_essays_into_words(df):
+    essay_df = df
+    essay_df['word'] = essay_df['essay'].apply(lambda x: re.split(' |\\n|\\.|\\?|\\!',x))
+    essay_df = essay_df.explode('word')
+    essay_df['word_len'] = essay_df['word'].apply(lambda x: len(x))
+    essay_df = essay_df[essay_df['word_len'] != 0]
+    return essay_df
+
+def compute_word_aggregations(word_df):
+    word_agg_df = word_df[['id','word_len']].groupby(['id']).agg(['count', 'mean', 'min', 'max', 'sem', q10, q25, 'median', q75, q90, 'skew', pd.DataFrame.kurt, 'sum'])
+    word_agg_df.columns = ['_'.join(x) for x in word_agg_df.columns]
+    word_agg_df['id'] = word_agg_df.index
+    for word_l in [5, 6, 7, 8, 9, 10, 11, 12]:
+        word_agg_df[f'word_len_ge_{word_l}_count'] = word_df[word_df['word_len'] >= word_l].groupby(['id']).count().iloc[:, 0]
+        word_agg_df[f'word_len_ge_{word_l}_count'] = word_agg_df[f'word_len_ge_{word_l}_count'].fillna(0)
+    word_agg_df = word_agg_df.reset_index(drop=True)
+    return word_agg_df
 
 def split_essays_into_sentences(df):
     essay_df = df
@@ -124,9 +127,10 @@ def split_essays_into_sentences(df):
     return essay_df
 
 def compute_sentence_aggregations(df):
-    sent_agg_df = pd.concat(
-        [df[['id','sent_len']].groupby(['id']).agg(AGGREGATIONS), df[['id','sent_word_count']].groupby(['id']).agg(AGGREGATIONS)], axis=1
-    )
+    sent_agg_df = pd.concat([
+            df[['id','sent_len']].groupby(['id']).agg(['count', 'mean', 'min', 'max', 'first', 'last', 'sem', q25, 'median', q75, 'skew', pd.DataFrame.kurt, 'sum']), 
+            df[['id','sent_word_count']].groupby(['id']).agg(['count', 'mean', 'min', 'max', 'first', 'last', 'sem', q25, 'median', q75, 'skew', pd.DataFrame.kurt, 'sum'])
+        ], axis=1)
     sent_agg_df.columns = ['_'.join(x) for x in sent_agg_df.columns]
     sent_agg_df['id'] = sent_agg_df.index
 
@@ -153,9 +157,10 @@ def split_essays_into_paragraphs(df):
     return essay_df
 
 def compute_paragraph_aggregations(df):
-    paragraph_agg_df = pd.concat(
-        [df[['id','paragraph_len']].groupby(['id']).agg(AGGREGATIONS), df[['id','paragraph_word_count']].groupby(['id']).agg(AGGREGATIONS)], axis=1
-    ) 
+    paragraph_agg_df = pd.concat([
+        df[['id','paragraph_len']].groupby(['id']).agg(['count', 'mean', 'min', 'max', 'first', 'last', 'sem', q25, 'median', q75, 'skew', pd.DataFrame.kurt, 'sum']), 
+        df[['id','paragraph_word_count']].groupby(['id']).agg(['count', 'mean', 'min', 'max', 'first', 'last', 'sem', q25, 'median', q75, 'skew', pd.DataFrame.kurt, 'sum'])
+    ], axis=1) 
     paragraph_agg_df.columns = ['_'.join(x) for x in paragraph_agg_df.columns]
     paragraph_agg_df['id'] = paragraph_agg_df.index
     paragraph_agg_df = paragraph_agg_df.reset_index(drop=True)
@@ -181,33 +186,12 @@ class Preprocessor:
         
         # text_changes, punctuationsを含む特殊文字をテキストに変換する辞書
         self.special_char_to_text = {
-            ' ': 'space',
-            '\n': 'enter',
-            '.': 'period',
-            ',': 'comma',
-            "'": 'apostrophe',
-            '"': 'quotation',
-            '-': 'hyphen',
-            ';': 'semicolon',
-            ':': 'colon',
-            '?': 'question',
-            '!': 'exclamation',
-            '<': 'less_than',
-            '>': 'greater_than',
-            '/': 'slash',
-            '\\': 'backslash',
-            '@': 'at',
-            '#': 'hash',
-            '$': 'dollar',
-            '%': 'percent',
-            '^': 'caret',
-            '&': 'ampersand',
-            '*': 'asterisk',
-            '(': 'left_parenthesis',
-            ')': 'right_parenthesis',
-            '_': 'underscore',
+            ' ': 'space', '\n': 'enter', '.': 'period', ',': 'comma', "'": 'apostrophe', '"': 'quotation',
+            '-': 'hyphen', ';': 'semicolon', ':': 'colon', '?': 'question', '!': 'exclamation', '<': 'less_than',
+            '>': 'greater_than', '/': 'slash', '\\': 'backslash', '@': 'at', '#': 'hash', '$': 'dollar',
+            '%': 'percent', '^': 'caret', '&': 'ampersand', '*': 'asterisk', '(': 'left_parenthesis',
+            ')': 'right_parenthesis', '_': 'underscore',
         }
-
 
     def _get_count_dataframe(self, df, colname, target_list):
         """
@@ -324,19 +308,19 @@ class Preprocessor:
         print("Engineering statistical summaries for features")
         feats_stat = [
             ('event_id', ['max']),
-            ('up_time', ['max', 'min', 'mean', 'quantile', q1, q3, 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
-            ('action_time', ['max', 'min', 'mean', 'quantile', q1, q3, 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
+            ('up_time', ['max', 'min', 'mean', 'median', q03, q10, q25, q75, q90, q97, 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
+            ('action_time', ['max', 'min', 'mean', 'median', q03, q10, q25, q75, q90, q97, 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
             ('activity', ['nunique']),
             ('down_event', ['nunique']),
             ('up_event', ['nunique']),
             ('text_change', ['nunique']),
-            ('cursor_position', ['nunique', 'max', 'quantile', q1, q3, 'sem', 'mean', 'last']),
-            ('word_count', ['nunique', 'max', 'quantile', q1, q3, 'sem', 'mean', 'last'])]
+            ('cursor_position', ['nunique', 'max', 'median', q03, q10, q25, q75, q90, q97, 'sem', 'mean', 'last']),
+            ('word_count', ['nunique', 'max', 'median', q03, q10, q25, q75, q90, q97, 'sem', 'mean', 'last'])]
         for gap in self.gaps:
             feats_stat.extend([
-                (f'action_time_gap{gap}', ['max', 'min', 'mean', 'quantile', 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
-                (f'cursor_position_change{gap}', ['max', 'mean', 'quantile', 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
-                (f'word_count_change{gap}', ['max', 'mean', 'quantile', 'sem', 'sum', 'skew', pd.DataFrame.kurt])
+                (f'action_time_gap{gap}', ['max', 'min', 'mean', 'median', 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
+                (f'cursor_position_change{gap}', ['max', 'mean', 'median', 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
+                (f'word_count_change{gap}', ['max', 'mean', 'median', 'sem', 'sum', 'skew', pd.DataFrame.kurt])
             ])
         
         pbar = tqdm(feats_stat)
