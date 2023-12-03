@@ -318,9 +318,9 @@ class Preprocessor:
             ('word_count', ['nunique', 'max', 'median', q03, q10, q25, q75, q90, q97, 'sem', 'mean', 'last'])]
         for gap in self.gaps:
             feats_stat.extend([
-                (f'action_time_gap{gap}', ['max', 'min', 'mean', 'median', 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
-                (f'cursor_position_change{gap}', ['max', 'mean', 'median', 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
-                (f'word_count_change{gap}', ['max', 'mean', 'median', 'sem', 'sum', 'skew', pd.DataFrame.kurt])
+                (f'action_time_gap{gap}', ['max', 'min', 'mean', 'median', q03, q10, q25, q75, q90, q97, 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
+                (f'cursor_position_change{gap}', ['max', 'min', 'mean', 'median', q03, q10, q25, q75, q90, q97, 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
+                (f'word_count_change{gap}', ['max', 'min', 'mean', 'median', q03, q10, q25, q75, q90, q97, 'sem', 'sum', 'skew', pd.DataFrame.kurt])
             ])
         
         pbar = tqdm(feats_stat)
