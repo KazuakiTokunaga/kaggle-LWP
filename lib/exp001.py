@@ -344,8 +344,15 @@ class Preprocessor:
             lambda x: ((x > 1.5) & (x < 2)).sum(),
             lambda x: ((x > 2) & (x < 3)).sum(),
             lambda x: (x > 3).sum(),
+            lambda x: (x > 10).sum(),
+            lambda x: (x > 50).sum(),
+            lambda x: (x > 100).sum(),
+            lambda x: (x > 1000).sum(),
         ])
-        paused_df.columns = ['pauses_half_sec', 'pauses_1_sec', 'pauses_1_half_sec', 'pauses_2_sec', 'pauses_3_sec']
+        paused_df.columns = [
+            'pauses_half_sec', 'pauses_1_sec', 'pauses_1_half_sec', 'pauses_2_sec', 'pauses_3_sec',
+            'pauses_10_sec', 'pauses_50_sec', 'pauses_100_sec', 'pauses_1000_sec'
+        ]
         feats = feats.merge(paused_df, on='id', how='left')
 
         print("Engineering activity counts data")
@@ -442,34 +449,6 @@ class Runner():
             self.nan_cols = feats.columns[feats.isna().any()].tolist()
             feats = feats.drop(columns=self.nan_cols)
 
-        # 9カラム
-        df['up_time_lagged'] = df.groupby('id')['up_time'].shift(1).fillna(df['down_time'])
-        df['time_diff'] = abs(df['down_time'] - df['up_time_lagged']) / 1000
-        group = df.groupby('id')['time_diff']
-        largest_lantency = group.max()
-        smallest_lantency = group.min()
-        median_lantency = group.median()
-        initial_pause = df.groupby('id')['down_time'].first() / 1000
-        pauses_half_sec = group.apply(lambda x: ((x > 0.5) & (x < 1)).sum())
-        pauses_1_sec = group.apply(lambda x: ((x > 1) & (x < 1.5)).sum())
-        pauses_1_half_sec = group.apply(lambda x: ((x > 1.5) & (x < 2)).sum())
-        pauses_2_sec = group.apply(lambda x: ((x > 2) & (x < 3)).sum())
-        pauses_3_sec = group.apply(lambda x: (x > 3).sum())
-
-        eD592674 = pd.DataFrame({
-            'id': df['id'].unique(),
-            'largest_lantency': largest_lantency,
-            'smallest_lantency': smallest_lantency,
-            'median_lantency': median_lantency,
-            'initial_pause': initial_pause,
-            'pauses_half_sec': pauses_half_sec,
-            'pauses_1_sec': pauses_1_sec,
-            'pauses_1_half_sec': pauses_1_half_sec,
-            'pauses_2_sec': pauses_2_sec,
-            'pauses_3_sec': pauses_3_sec,
-        }).reset_index(drop=True)
-
-        feats = feats.merge(eD592674, on='id', how='left')
         feats = feats.merge(word_agg_df, on='id', how='left')
         feats = feats.merge(sent_agg_df, on='id', how='left')
         feats = feats.merge(paragraph_agg_df, on='id', how='left')
