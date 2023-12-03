@@ -16,7 +16,7 @@ from itertools import cycle
 from scipy import stats
 from scipy.stats import skew, kurtosis
 from sklearn import metrics, model_selection, preprocessing, linear_model, ensemble, decomposition, tree
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 import lightgbm as lgb
 import copy
 import datetime
@@ -98,7 +98,8 @@ def get_countvectorizer_features(df):
 
     def get_ngram_df(df, ngram = (1,2), thre=0.03):
 
-        count_vectorizer = CountVectorizer(ngram_range=ngram, min_df=thre)
+        # count_vectorizer = CountVectorizer(ngram_range=ngram, min_df=thre)
+        count_vectorizer = TfidfVectorizer(ngram_range=ngram, min_df=thre)
         X_tokenizer_train = count_vectorizer.fit_transform(df['essay']).todense()
         df_train_index = pd.Index(df['id'].unique(), name = 'id')
         feature_names = count_vectorizer.get_feature_names_out()
