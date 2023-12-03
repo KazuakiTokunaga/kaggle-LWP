@@ -309,6 +309,7 @@ class Preprocessor:
         feats_stat = [
             ('event_id', ['max']),
             ('up_time', ['max', 'min', 'mean', 'median', q03, q10, q25, q75, q90, q97, 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
+            ('down_time', ['min']),
             ('action_time', ['max', 'min', 'mean', 'median', q03, q10, q25, q75, q90, q97, 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
             ('activity', ['nunique']),
             ('down_event', ['nunique']),
@@ -335,6 +336,17 @@ class Preprocessor:
                 pbar.set_postfix(column=colname, method=method_name)
                 tmp_df = df.groupby(['id']).agg({colname: method}).reset_index().rename(columns={colname: f'{colname}_{method_name}'})
                 feats = feats.merge(tmp_df, on='id', how='left')
+
+
+        paused_df = df.groupby('id')['action_time_gap1'].agg([
+            lambda x: ((x > 0.5) & (x < 1)).sum(),
+            lambda x: ((x > 1) & (x < 1.5)).sum(),
+            lambda x: ((x > 1.5) & (x < 2)).sum(),
+            lambda x: ((x > 2) & (x < 3)).sum(),
+            lambda x: (x > 3).sum(),
+        ])
+        paused_df.columns = ['pauses_half_sec', 'pauses_1_sec', 'pauses_1_half_sec', 'pauses_2_sec', 'pauses_3_sec']
+        feats = feats.merge(paused_df, on='id', how='left')
 
         print("Engineering activity counts data")
         activity_df = self.get_count(df, 'activity', self.activities)
