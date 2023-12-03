@@ -73,7 +73,7 @@ def q1(x):
 def q3(x):
     return x.quantile(0.75)
 
-AGGREGATIONS = ['count', 'mean', 'std', 'min', 'max', 'first', 'last', 'sem', q1, 'median', q3, 'skew', pd.DataFrame.kurt, 'sum']
+AGGREGATIONS = ['count', 'mean', 'min', 'max', 'first', 'last', 'sem', q1, 'median', q3, 'skew', pd.DataFrame.kurt, 'sum']
 
 def split_essays_into_words(df):
     essay_df = df
@@ -98,8 +98,8 @@ def get_countvectorizer_features(df):
 
     def get_ngram_df(df, ngram = (1,2), thre=0.03):
 
-        # count_vectorizer = CountVectorizer(ngram_range=ngram, min_df=thre)
-        count_vectorizer = TfidfVectorizer(ngram_range=ngram, min_df=thre)
+        count_vectorizer = CountVectorizer(ngram_range=ngram, min_df=thre)
+        # count_vectorizer = TfidfVectorizer(ngram_range=ngram, min_df=thre)
         X_tokenizer_train = count_vectorizer.fit_transform(df['essay']).todense()
         df_train_index = pd.Index(df['id'].unique(), name = 'id')
         feature_names = count_vectorizer.get_feature_names_out()
@@ -324,19 +324,19 @@ class Preprocessor:
         print("Engineering statistical summaries for features")
         feats_stat = [
             ('event_id', ['max']),
-            ('up_time', ['max']),
-            ('action_time', ['max', 'min', 'mean', 'std', 'quantile', 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
+            ('up_time', ['max', 'min', 'mean', 'quantile', q1, q3, 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
+            ('action_time', ['max', 'min', 'mean', 'quantile', q1, q3, 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
             ('activity', ['nunique']),
             ('down_event', ['nunique']),
             ('up_event', ['nunique']),
             ('text_change', ['nunique']),
-            ('cursor_position', ['nunique', 'max', 'quantile', 'sem', 'mean']),
-            ('word_count', ['nunique', 'max', 'quantile', 'sem', 'mean'])]
+            ('cursor_position', ['nunique', 'max', 'quantile', q1, q3, 'sem', 'mean', 'last']),
+            ('word_count', ['nunique', 'max', 'quantile', q1, q3, 'sem', 'mean', 'last'])]
         for gap in self.gaps:
             feats_stat.extend([
-                (f'action_time_gap{gap}', ['max', 'min', 'mean', 'std', 'quantile', 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
-                (f'cursor_position_change{gap}', ['max', 'mean', 'std', 'quantile', 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
-                (f'word_count_change{gap}', ['max', 'mean', 'std', 'quantile', 'sem', 'sum', 'skew', pd.DataFrame.kurt])
+                (f'action_time_gap{gap}', ['max', 'min', 'mean', 'quantile', 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
+                (f'cursor_position_change{gap}', ['max', 'mean', 'quantile', 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
+                (f'word_count_change{gap}', ['max', 'mean', 'quantile', 'sem', 'sum', 'skew', pd.DataFrame.kurt])
             ])
         
         pbar = tqdm(feats_stat)
@@ -446,14 +446,6 @@ class Runner():
             self.nan_cols = feats.columns[feats.isna().any()].tolist()
             feats = feats.drop(columns=self.nan_cols)
 
-        # 45カラム（preprocessと重なりが多そう）
-        agg_fe_df = df.groupby("id")[['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']].agg(
-            ['mean', 'std', 'min', 'max', 'last', 'first', 'sem', 'median', 'sum']
-        )
-        agg_fe_df.columns = ['_'.join(x) for x in agg_fe_df.columns]
-        agg_fe_df = agg_fe_df.add_prefix("tmp_")
-        agg_fe_df.reset_index(inplace=True)
-
         # 9カラム
         df['up_time_lagged'] = df.groupby('id')['up_time'].shift(1).fillna(df['down_time'])
         df['time_diff'] = abs(df['down_time'] - df['up_time_lagged']) / 1000
@@ -481,7 +473,6 @@ class Runner():
             'pauses_3_sec': pauses_3_sec,
         }).reset_index(drop=True)
 
-        feats = feats.merge(agg_fe_df, on='id', how='left')
         feats = feats.merge(eD592674, on='id', how='left')
         feats = feats.merge(word_agg_df, on='id', how='left')
         feats = feats.merge(sent_agg_df, on='id', how='left')
