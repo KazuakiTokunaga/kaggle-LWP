@@ -175,12 +175,14 @@ class Preprocessor:
         self.seed = seed
         
         self.activities = ['Input', 'Remove/Cut', 'Nonproduction', 'Replace', 'Paste']
-        self.events = ['q', 'Space', 'Backspace', 'Shift', 'ArrowRight', 'Leftclick', 'ArrowLeft', '.', ',', 
-              'ArrowDown', 'ArrowUp', 'Enter', 'CapsLock', "'", 'Delete', 'Unidentified']
+        self.events = [
+            'q', 'Space', 'Backspace', 'Shift', 'ArrowRight', 'Leftclick', 'ArrowLeft', '.', ',', '"',
+            'ArrowDown', 'ArrowUp', 'Enter', 'CapsLock', "'", 'Delete', 'Unidentified', "Control", '"', '-', '?', ';', '=', 'Tab',
+            '/', 'Rightclick', ':', '(', ')', '\\', 'ContextMenu', 'End', '!', 'Meta', 'Alt', 'c', 'v', 'z', 'a', 'x'
+        ]
         self.text_changes = ['q', ' ', 'NoChange', '.', ',', '\n', "'", '"', '-', '?', ';', '=', '/', '\\', ':']
-        self.punctuations = ['"', '.', ',', "'", '-', ';', ':', '?', '!', '<', '>', '/',
-                        '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+']
-        self.gaps = [1, 2, 3, 5, 10, 20, 50, 100]
+        self.punctuations = ['"', '.', ',', "'", '-', ';', ':', '?', '!', '<', '>', '/', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+']
+        self.gaps = [1, 3, 5, 10, 20, 50, 100]
         
         self.idf = defaultdict(float)
         
@@ -280,6 +282,46 @@ class Preprocessor:
         tmp_df.drop(['text_change'], axis=1, inplace=True)
         return tmp_df
     
+    def get_down_up_diff(self, df):
+
+        df_diff = df[df['down_event'] != df['up_event']]
+        df_diff.groupby('id')['event_id'].agg(['count'])
+        df_diff.columns = ['upevent_downevent_diff_count']
+
+        df_down_not_q = df[(df['down_event'].str.match(r'^[a-z]$'))&(df['down_event']!='q')]
+        df_down_not_q.groupby('id')['event_id'].agg(['count'])
+        df_down_not_q.columns = ['down_not_q_count']
+
+        df_up_not_q = df[(df['up_event'].str.match(r'^[a-z]$'))&(df['up_event']!='q')]
+        df_up_not_q.groupby('id')['event_id'].agg(['count'])
+        df_up_not_q.columns = ['up_not_q_count']
+
+        df_diff = df_diff.merge(df_down_not_q, on='id', how='left')
+        df_diff = df_diff.merge(df_up_not_q, on='id', how='left')
+
+        return df_diff
+    
+    def get_pause(self, df):
+
+        paused_df = df.groupby('id')['action_time_gap1'].agg([
+            lambda x: (x < -1).sum(),
+            lambda x: (x < 0).sum(),
+            lambda x: ((x > 0.5) & (x < 1)).sum(),
+            lambda x: ((x > 1) & (x < 1.5)).sum(),
+            lambda x: ((x > 1.5) & (x < 2)).sum(),
+            lambda x: ((x > 2) & (x < 3)).sum(),
+            lambda x: (x > 3).sum(),
+            lambda x: (x > 10).sum(),
+            lambda x: (x > 50).sum(),
+            lambda x: (x > 100).sum(),
+            lambda x: (x > 1000).sum(),
+        ])
+        paused_df.columns = [
+            'pause_minus_1_sec', 'pause_minus_sec', 'pauses_half_sec', 'pauses_1_sec', 'pauses_1_half_sec', 'pauses_2_sec', 'pauses_3_sec',
+            'pauses_10_sec', 'pauses_50_sec', 'pauses_100_sec', 'pauses_1000_sec'
+        ]
+
+        return paused_df
 
     def make_feats(self, df):
         
@@ -338,42 +380,19 @@ class Preprocessor:
                 feats = feats.merge(tmp_df, on='id', how='left')
 
 
-        paused_df = df.groupby('id')['action_time_gap1'].agg([
-            lambda x: ((x > 0.5) & (x < 1)).sum(),
-            lambda x: ((x > 1) & (x < 1.5)).sum(),
-            lambda x: ((x > 1.5) & (x < 2)).sum(),
-            lambda x: ((x > 2) & (x < 3)).sum(),
-            lambda x: (x > 3).sum(),
-            lambda x: (x > 10).sum(),
-            lambda x: (x > 50).sum(),
-            lambda x: (x > 100).sum(),
-            lambda x: (x > 1000).sum(),
-        ])
-        paused_df.columns = [
-            'pauses_half_sec', 'pauses_1_sec', 'pauses_1_half_sec', 'pauses_2_sec', 'pauses_3_sec',
-            'pauses_10_sec', 'pauses_50_sec', 'pauses_100_sec', 'pauses_1000_sec'
-        ]
-        feats = feats.merge(paused_df, on='id', how='left')
-
         print("Engineering activity counts data")
         activity_df = self.get_count(df, 'activity', self.activities)
-
-        print("Engineering event counts data")
         down_df = self.get_count(df, 'down_event', self.events)
-        up_df = self.get_count(df, 'up_event', self.events)
-        
-        print("Engineering text change counts data")
         text_change_df = self.get_count(df, 'text_change', self.text_changes)
-
-        print("Engineering punctuation counts data")
         punctuations_df = self.match_punctuations(df)
-
-        for tmp_df in [activity_df, down_df, up_df, text_change_df, punctuations_df]:
+        for tmp_df in [activity_df, down_df, text_change_df, punctuations_df]:
             feats = pd.concat([feats, tmp_df], axis=1)
 
-        print("Engineering input words data")
         input_words_df = self.get_input_words(df)
-        feats = feats.merge(input_words_df, on='id', how='left')
+        paused_df = self.get_pause(df)
+        diff_df = self.get_down_up_diff(df)
+        for tmp_df in [input_words_df, paused_df, diff_df]:
+            feats = feats.merge(input_words_df, on='id', how='left')
 
         print("Engineering ratios data")
         feats = feats.copy()
@@ -441,7 +460,7 @@ class Runner():
         paragraph_df = split_essays_into_paragraphs(df_essay)
         paragraph_agg_df = compute_paragraph_aggregations(paragraph_df)
 
-        # 286カラム
+        # 400カラム
         preprocessor = Preprocessor(seed=42)
         feats = preprocessor.make_feats(df)
 
