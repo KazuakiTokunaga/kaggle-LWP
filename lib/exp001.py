@@ -323,16 +323,17 @@ class Preprocessor:
 
         # 最初のInputの直前のイベント
         df_merged = df.merge(df_first_input, on='id', how='left')
-        df_before_event = df_merged[df_merged['event_id'] < df_merged['first_input_event_id']]
+        df_before_event_base = df_merged[df_merged['event_id'] < df_merged['first_input_event_id']]
         df_before_event = self.get_count(
-            df_before_event, 
+            df_before_event_base, 
             'down_event', 
             ["Backspace", 'CapsLock', 'Leftclick', 'Shift'], 
             suffix='_before_first_input'
         )
-        df_before_event.index = df_first_input.index
+        df_before_event.index = df_before_event_base.index
+        df_first_input = df_first_input.merge(df_before_event, on='id', how='left').fillna(0)
 
-        return pd.concat([df_first_input, df_before_event], axis=1)
+        return df_first_input
 
 
 
