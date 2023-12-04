@@ -171,17 +171,10 @@ def compute_paragraph_aggregations(df):
 
 class Preprocessor:
     
-    def __init__(self, seed):
+    def __init__(self, seed=42):
         self.seed = seed
+
         
-        self.activities = ['Input', 'Remove/Cut', 'Nonproduction', 'Replace', 'Paste']
-        self.events = [
-            'q', 'Space', 'Backspace', 'Shift', 'ArrowRight', 'Leftclick', 'ArrowLeft', '.', ',', '"',
-            'ArrowDown', 'ArrowUp', 'Enter', 'CapsLock', "'", 'Delete', 'Unidentified', "Control", '"', '-', '?', ';', '=', 'Tab',
-            '/', 'Rightclick', ':', '(', ')', '\\', 'ContextMenu', 'End', '!', 'Meta', 'Alt', 'c', 'v', 'z', 'a', 'x'
-        ]
-        self.text_changes = ['q', ' ', 'NoChange', '.', ',', '\n', "'", '"', '-', '?', ';', '=', '/', '\\', ':']
-        self.punctuations = ['"', '.', ',', "'", '-', ';', ':', '?', '!', '<', '>', '/', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+']
         self.gaps = [1, 3, 5, 10, 20, 50, 100]
         
         self.idf = defaultdict(float)
@@ -260,7 +253,7 @@ class Preprocessor:
             items = list(Counter(li).items())
             for item in items:
                 k, v = item[0], item[1]
-                if k in self.punctuations: # 全てのpuncluationを区別せずにカウントする
+                if k in ['"', '.', ',', "'", '-', ';', ':', '?', '!', '<', '>', '/', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+']:
                     cnt += v
             ret.append(cnt)
         ret = pd.DataFrame({'punct_cnt': ret}) # ここで含まれるカラムは1つのみ
@@ -401,9 +394,25 @@ class Preprocessor:
 
 
         print("Engineering activity counts data")
-        activity_df = self.get_count(df, 'activity', self.activities)
-        down_df = self.get_count(df, 'down_event', self.events)
-        text_change_df = self.get_count(df, 'text_change', self.text_changes)
+        activity_df = self.get_count(
+            df = df,
+            colname = 'activity', 
+            target_list = ['Input', 'Remove/Cut', 'Nonproduction', 'Replace', 'Paste']
+        )
+        down_df = self.get_count(
+            df = df, 
+            colname = 'down_event',
+            target_list =  [
+                'q', 'Space', 'Backspace', 'Shift', 'ArrowRight', 'Leftclick', 'ArrowLeft', '.', ',', '"',
+                'ArrowDown', 'ArrowUp', 'Enter', 'CapsLock', "'", 'Delete', 'Unidentified', "Control", '"', '-', '?', ';', '=', 'Tab',
+                '/', 'Rightclick', ':', '(', ')', '\\', 'ContextMenu', 'End', '!', 'Meta', 'Alt', 'c', 'v', 'z', 'a', 'x'
+            ]
+        )
+        text_change_df = self.get_count(
+            df = df, 
+            colname = 'text_change', 
+            target_list = ['q', ' ', 'NoChange', '.', ',', '\n', "'", '"', '-', '?', ';', '=', '/', '\\', ':']
+        )
         punctuations_df = self.match_punctuations(df)
         for tmp_df in [activity_df, down_df, text_change_df, punctuations_df]:
             feats = pd.concat([feats, tmp_df], axis=1)
