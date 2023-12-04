@@ -284,8 +284,8 @@ class Preprocessor:
     
     def get_down_up_diff(self, df):
 
-        df_diff = df[df['down_event'] != df['up_event']]
-        df_diff.groupby('id')['event_id'].agg(['count'])
+        df_diff_base = df[df['down_event'] != df['up_event']]
+        df_diff = df_diff_base.groupby('id')['event_id'].agg(['count'])
         df_diff.columns = ['upevent_downevent_diff_count']
 
         df_down_not_q = df[(df['down_event'].str.match(r'^[a-z]$'))&(df['down_event']!='q')]
@@ -405,7 +405,8 @@ class Preprocessor:
         input_words_df = self.get_input_words(df)
         paused_df = self.get_pause(df)
         diff_df = self.get_down_up_diff(df)
-        for tmp_df in [input_words_df, paused_df, diff_df]:
+        first_move_df = self.get_first_move(df)
+        for tmp_df in [input_words_df, paused_df, diff_df, first_move_df]:
             feats = feats.merge(input_words_df, on='id', how='left')
 
         print("Engineering ratios data")
