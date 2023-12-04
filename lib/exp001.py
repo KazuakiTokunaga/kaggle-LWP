@@ -407,7 +407,7 @@ class Preprocessor:
         diff_df = self.get_down_up_diff(df)
         first_move_df = self.get_first_move(df)
         for tmp_df in [input_words_df, paused_df, diff_df, first_move_df]:
-            feats = feats.merge(input_words_df, on='id', how='left')
+            feats = feats.merge(tmp_df, on='id', how='left')
 
         print("Engineering ratios data")
         feats = feats.copy()
