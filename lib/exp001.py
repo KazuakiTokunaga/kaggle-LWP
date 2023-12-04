@@ -329,9 +329,10 @@ class Preprocessor:
         df_first_input.columns = ['first_input_event_id', 'first_input_down_time']
 
         # 最初のInputの直前のイベント
-        df = df.merge(df_first_input, on='id', how='left')
-        df_before_event = df[df['event_id'] < df['first_input_event_id']]
+        df_merged = df.merge(df_first_input, on='id', how='left')
+        df_before_event = df_merged[df_merged['event_id'] < df_merged['first_input_event_id']]
         df_before_event = self.get_count(df_before_event, 'activity', self.activities, suffix='_before_first_input')
+        df_before_event.index = df_first_input.index
 
         return pd.concat([df_first_input, df_before_event], axis=1)
 
