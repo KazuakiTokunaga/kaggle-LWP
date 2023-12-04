@@ -330,7 +330,7 @@ class Preprocessor:
             suffix='_before_first_input'
         )
         df_before_event.index = df_before_event_base['id'].drop_duplicates().values
-        df_first_input.index = df_first_input.index.rename('id')
+        df_before_event.index = df_before_event.index.rename('id')
 
         df_first_input = df_first_input.merge(df_before_event, on='id', how='left').fillna(0)
 
