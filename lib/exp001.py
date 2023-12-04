@@ -284,16 +284,16 @@ class Preprocessor:
     
     def get_down_up_diff(self, df):
 
-        df_diff_base = df[df['down_event'] != df['up_event']]
-        df_diff = df_diff_base.groupby('id')['event_id'].agg(['count'])
+        df_diff = df[df['down_event'] != df['up_event']]
+        df_diff = df_diff.groupby('id')['event_id'].agg(['count'])
         df_diff.columns = ['upevent_downevent_diff_count']
 
         df_down_not_q = df[(df['down_event'].str.match(r'^[a-z]$'))&(df['down_event']!='q')]
-        df_down_not_q.groupby('id')['event_id'].agg(['count'])
+        df_down_not_q = df_down_not_q.groupby('id')['event_id'].agg(['count'])
         df_down_not_q.columns = ['down_not_q_count']
 
         df_up_not_q = df[(df['up_event'].str.match(r'^[a-z]$'))&(df['up_event']!='q')]
-        df_up_not_q.groupby('id')['event_id'].agg(['count'])
+        df_up_not_q = df_up_not_q.groupby('id')['event_id'].agg(['count'])
         df_up_not_q.columns = ['up_not_q_count']
 
         df_diff = df_diff.merge(df_down_not_q, on='id', how='left')
