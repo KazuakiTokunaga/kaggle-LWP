@@ -195,7 +195,7 @@ class Preprocessor:
             ')': 'right_parenthesis', '_': 'underscore',
         }
 
-    def _get_count_dataframe(self, df, colname, target_list):
+    def _get_count_dataframe(self, df, colname, target_list, suffix):
         """
         ログのcolnameのカウントを取得してカラムにする
         カウントを取得するのはtarget_listに含まれるもののみ
@@ -219,9 +219,9 @@ class Preprocessor:
         for c in ret.columns:
             if c in self.special_char_to_text.keys():
                 t = self.special_char_to_text[c]
-                cols.append(f'{colname}_{t}_count')
+                cols.append(f'{colname}_{t}_count{suffix}')
             else:
-                cols.append(f'{colname}_{c}_count')
+                cols.append(f'{colname}_{c}_count{suffix}')
         ret.columns = cols
     
         return ret
@@ -247,8 +247,8 @@ class Preprocessor:
         return ret
     
 
-    def get_count(self, df, colname, target_list):
-        ret = self._get_count_dataframe(df, colname, target_list)
+    def get_count(self, df, colname, target_list, suffix=''):
+        ret = self._get_count_dataframe(df, colname, target_list, suffix)
         return self._tf_idf_transform(df, ret)
 
 
@@ -322,6 +322,20 @@ class Preprocessor:
         ]
 
         return paused_df
+    
+    def get_first_move(self, df):
+
+        df_first_input = df[df['activity'] == 'Input'].groupby('id')[['event_id', 'down_time']].agg(['min'])
+        df_first_input.columns = ['first_input_event_id', 'first_input_down_time']
+
+        # 最初のInputの直前のイベント
+        df = df.merge(df_first_input, on='id', how='left')
+        df_before_event = df[df['event_id'] < df['first_input_event_id']]
+        df_before_event = self.get_count(df_before_event, 'activity', self.activities, suffix='_before_first_input')
+
+        return pd.concat([df_first_input, df_before_event], axis=1)
+
+
 
     def make_feats(self, df):
         
