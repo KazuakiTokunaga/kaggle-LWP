@@ -176,7 +176,6 @@ class Preprocessor:
 
         
         self.gaps = [1, 3, 5, 10, 20, 50, 100]
-        
         self.idf = defaultdict(float)
         
         # text_changes, punctuationsを含む特殊文字をテキストに変換する辞書
@@ -325,12 +324,14 @@ class Preprocessor:
         df_merged = df.merge(df_first_input, on='id', how='left')
         df_before_event_base = df_merged[df_merged['event_id'] < df_merged['first_input_event_id']]
         df_before_event = self.get_count(
-            df_before_event_base, 
-            'down_event', 
-            ["Backspace", 'CapsLock', 'Leftclick', 'Shift'], 
+            df = df_before_event_base, 
+            colname = 'down_event', 
+            target_list = ["Backspace", 'CapsLock', 'Leftclick', 'Shift'], 
             suffix='_before_first_input'
         )
         df_before_event.index = df_before_event_base['id'].drop_duplicates().values
+        df_first_input.index = df_first_input.index.rename('id')
+
         df_first_input = df_first_input.merge(df_before_event, on='id', how='left').fillna(0)
 
         return df_first_input
