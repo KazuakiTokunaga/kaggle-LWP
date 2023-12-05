@@ -44,7 +44,7 @@ class RCFG:
     debug_size = 100
     split_cnt = 5
     n_splits = 5
-    cnt_seed = 5
+    cnt_seed = 3
     base_seed = 42
     preprocess_train = False
     predict = False
@@ -218,30 +218,10 @@ class Preprocessor:
         ret.columns = cols
     
         return ret
-
-    def _tf_idf_transform(self, df, ret):
-        """
-        カウントデータをtf-idfに変換する
-        """
-
-        cnts = ret.sum(1)
-        for col in ret.columns:
-            if col in self.idf.keys():
-                idf = self.idf[col]
-            else:
-                idf = df.shape[0] / (ret[col].sum() + 1)
-                idf = np.log(idf)
-                self.idf[col] = idf
-
-            ret[col] = 1 + np.log(ret[col] / cnts)
-            ret[col] *= idf
-
-        return ret
     
     def get_count(self, df, colname, target_list, suffix=''):
         ret = self._get_count_dataframe(df, colname, target_list, suffix)
-        return self._tf_idf_transform(df, ret)
-        # return ret
+        return ret
 
     def match_punctuations(self, df):
         tmp_df = df.groupby('id').agg({'down_event': list}).reset_index()
@@ -440,7 +420,8 @@ class Runner():
         
         self.logger = Logger()
         tqdm.pandas()
-
+        
+        self.logger.info(f'Commit hash: {ENV.commit_hash}')
         if ENV.save_to_sheet:
             self.logger.info('Initializing Google Sheet.')
             self.sheet = WriteSheet(
@@ -636,6 +617,7 @@ class Runner():
             self.final_score = np.mean(list(self.second_cvscore.values()))
         else:
             self.final_score = np.mean(list(self.first_cvscore.values()))
+        self.logger.info(f'Final CV Score: {self.final_score}')
 
         self.feature_importance_df.to_csv(f'{ENV.output_dir}feature_importance.csv', index=False)
         with open(f'{ENV.output_dir}models_dict.pickle', 'wb') as f:
