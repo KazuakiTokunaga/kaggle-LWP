@@ -509,12 +509,11 @@ class Runner():
         last = False if mode == 'first' and RCFG.select_feature else True
 
         for seed_id in range(RCFG.cnt_seed): 
-            seed = RCFG.base_seed + seed_id
-            self.logger.info(f'Start training for seed {seed}.')
-            
+            self.logger.info(f'Start training for seed {seed_id}.')            
             oof_valid_preds = np.zeros(self.train_feats.shape[0])
-            
+
             for fold in range(RCFG.n_splits):
+                seed = RCFG.base_seed + (2 ** (seed_id+2)) * (5 ** (split_id+2)) * (3 ** (fold+1))
 
                 if mode == 'second':
                     cond = (self.feature_importance_df['split_id'] == split_id) & (self.feature_importance_df['fold'] == fold)
@@ -536,7 +535,7 @@ class Runner():
                 X_train, y_train = self.train_feats.iloc[train_idx][self.train_cols], self.train_feats.iloc[train_idx][target_col]
                 X_valid, y_valid = self.train_feats.iloc[valid_idx][self.train_cols], self.train_feats.iloc[valid_idx][target_col]
                 
-                params['random_state'] = 42 * fold + seed
+                params['random_state'] = seed
                 params['learning_rate'] = 0.02 if last else 0.05
 
                 model = lgb.LGBMRegressor(**params)
@@ -551,10 +550,10 @@ class Runner():
                 self.models_dict[f'{split_id}_{seed_id}_{fold}'] = model
 
                 rmse = np.round(metrics.mean_squared_error(y_valid, valid_predict, squared=False), 6)
-                self.logger.info(f'Seed {seed} fold {fold} rmse: {rmse}, best iteration: {model.best_iteration_}')
+                self.logger.info(f'Seed_id {seed_id} fold {fold} rmse: {rmse}, best iteration: {model.best_iteration_}')
 
             oof_score = np.round(metrics.mean_squared_error(self.train_feats[target_col], oof_valid_preds, squared=False), 6)
-            self.logger.info(f'oof score for seed {seed}: {oof_score}')
+            self.logger.info(f'oof score for seed_id {seed_id}: {oof_score}')
             oofscore.append(oof_score)
 
         cvscore = np.round(np.mean(oofscore), 6)
