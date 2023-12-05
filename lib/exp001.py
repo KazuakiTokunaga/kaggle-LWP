@@ -638,7 +638,7 @@ class Runner():
                     self.feature_importance_df = pd.concat([self.feature_importance_df, fold_importance_df], axis=0)
 
             if RCFG.select_feature:
-                self.logger.info('Retrain LightGBM with selected features.')
+                self.logger.info('--------- Retrain LightGBM with selected features. ---------')
                 self._train_fold_seed(mode='second', split_id=split_id)
 
         if RCFG.select_feature:
