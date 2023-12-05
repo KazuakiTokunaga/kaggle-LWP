@@ -565,7 +565,7 @@ class Runner():
                 X_valid, y_valid = self.train_feats.iloc[valid_idx][self.train_cols], self.train_feats.iloc[valid_idx][target_col]
                 
                 params['random_state'] = 42 * fold + seed
-                params['learning_rate'] = 0.02 if last else 0.1
+                params['learning_rate'] = 0.02 if last else 0.05
 
                 model = lgb.LGBMRegressor(**params)
                 early_stopping_callback = lgb.early_stopping(200, first_metric_only=True, verbose=False)
