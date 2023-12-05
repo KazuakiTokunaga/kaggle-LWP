@@ -42,8 +42,9 @@ class RCFG:
     run_name = 'exp001'
     debug = True
     debug_size = 100
-    n_splits = 5
-    cnt_seed = 5
+    split_cnt = 2
+    n_splits = 2
+    cnt_seed = 2
     base_seed = 42
     preprocess_train = False
     predict = False
@@ -443,7 +444,6 @@ class Runner():
         self,
     ):
         
-        self.data_to_write = []
         self.logger = Logger()
         tqdm.pandas()
 
@@ -528,17 +528,16 @@ class Runner():
             self.logger.info('Create features for test data.')
             self.test_feats = self._add_features(self.test_logs, test_essays, mode='predict')
 
-    def _train_fold_seed(self, mode='first'):
+    def _train_fold_seed(self, mode='first', split_id=0):
 
-        self.models_dict = {}
-        self.scores = []
+        oofscore = []
         target_col = ['score']
         self.train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id', 'fold']]
         params = RCFG.lgbm_params
         last = False if mode == 'first' and RCFG.select_feature else True
 
-        for i in range(RCFG.cnt_seed): 
-            seed = RCFG.base_seed + i
+        for seed_id in range(RCFG.cnt_seed): 
+            seed = RCFG.base_seed + seed_id
             self.logger.info(f'Start training for seed {seed}.')
             
             oof_valid_preds = np.zeros(self.train_feats.shape[0])
@@ -546,17 +545,16 @@ class Runner():
             for fold in range(RCFG.n_splits):
 
                 if mode == 'second':
-                    feature_df = self.feature_importance_df[self.feature_importance_df['fold'] == fold].groupby('feature').mean()
+                    cond = (self.feature_importance_df['split_id'] == split_id) & (self.feature_importance_df['fold'] == fold)
+                    feature_df = self.feature_importance_df[cond].groupby('feature').mean()
                     feature_df = feature_df.sort_values(by="importance", ascending=False).reset_index()
                     if RCFG.use_random_features:
-                        # dummy_randomから始まる特徴量のうち5番めの特徴量のindexを取得する
                         dummy_random_idx = feature_df[feature_df['feature'].str.startswith('dummy_random')].index[RCFG.threshold_random_features]
-                        # dummy_random_idxより上位にある特徴量のみを取得する
                         self.train_cols = feature_df[feature_df.index <= dummy_random_idx]['feature'].tolist()
                         self.train_cols = [c for c in self.train_cols if not c.startswith('dummy_random')]
                     else:
                         self.train_cols = feature_df.head(RCFG.use_feature_rank)['feature'].tolist()
-                    if i == 0:
+                    if seed_id == 0:
                         self.logger.info(f'self.train_cols: {len(self.train_cols)}')
 
                 self.logger.info(f'Start training for fold {fold}.')
@@ -578,18 +576,23 @@ class Runner():
                 )
                 valid_predict = model.predict(X_valid)
                 oof_valid_preds[valid_idx] = valid_predict
-                self.models_dict[f'{fold}_{i}'] = model
+                self.models_dict[f'{split_id}_{seed_id}_{fold}'] = model
 
                 rmse = np.round(metrics.mean_squared_error(y_valid, valid_predict, squared=False), 6)
                 self.logger.info(f'Seed {seed} fold {fold} rmse: {rmse}, best iteration: {model.best_iteration_}')
 
             oof_score = np.round(metrics.mean_squared_error(self.train_feats[target_col], oof_valid_preds, squared=False), 6)
             self.logger.info(f'oof score for seed {seed}: {oof_score}')
-            self.scores.append(oof_score)
+            oofscore.append(oof_score)
 
-        self.cvscore = np.round(np.mean(self.scores), 6)
-        self.logger.info(f'CV score: {self.cvscore}')
-        self.data_to_write += self.scores.copy() + [self.cvscore]
+        cvscore = np.round(np.mean(oofscore), 6)
+        self.logger.info(f'CV score: {cvscore}')
+        if mode == 'first':
+            self.first_oofscores[split_id] = oofscore
+            self.first_cvscore[split_id] = cvscore
+        else:
+            self.second_oofscores[split_id] = oofscore
+            self.second_cvscore[split_id] = cvscore
 
     def train(self,):
 
@@ -602,30 +605,46 @@ class Runner():
             self.logger.info('Add random features.')
             self.train_feats = add_random_feature(self.train_feats)
 
-        kf = model_selection.KFold(n_splits=RCFG.n_splits, random_state= 1030, shuffle=True)
-        for fold, (_, valid_idx) in enumerate(kf.split(self.train_feats)):
-            self.train_feats.loc[valid_idx, 'fold'] = fold
-
+        
         self.logger.info(f'Start training. train_feats shape: {self.train_feats.shape}')
-        self._train_fold_seed(mode='first')
-
-        self.logger.info('Calculate feature importance.')
         self.feature_importance_df = pd.DataFrame()
-        for fold in range(RCFG.n_splits):
-            model = self.models_dict[f'{fold}_0']
-            model.importance_type = 'gain'
-            fold_importance_df = pd.DataFrame()
-            fold_importance_df["feature"] = self.train_cols
-            fold_importance_df["importance"] = model.feature_importances_
-            fold_importance_df["fold"] = fold
-            self.feature_importance_df = pd.concat([self.feature_importance_df, fold_importance_df], axis=0)
-        self.feature_importance_df.to_csv(f'{ENV.output_dir}feature_importance.csv', index=False)
+        self.models_dict = {}
+        self.first_oofscores = {}
+        self.second_oofscores = {}
+        self.first_cvscore = {}
+        self.second_cvscore = {}
+
+        for split_id in range(RCFG.split_cnt):
+            kf = model_selection.KFold(n_splits=RCFG.n_splits, random_state= 1030 + split_id, shuffle=True)
+            for fold, (_, valid_idx) in enumerate(kf.split(self.train_feats)):
+                self.train_feats.loc[valid_idx, 'fold'] = fold
+
+            self.logger.info(f'Train LightGBM with split seed: {1030+split_id}.')    
+            self._train_fold_seed(mode='first', split_id=split_id)
+
+            self.logger.info('Calculate feature importance.')
+            for fold in range(RCFG.n_splits):
+                for seed_id in range(RCFG.cnt_seed):
+                    model = self.models_dict[f'{split_id}_{seed_id}_{fold}']
+                    model.importance_type = 'gain'
+                    fold_importance_df = pd.DataFrame()
+                    fold_importance_df["feature"] = self.train_cols
+                    fold_importance_df["importance"] = model.feature_importances_
+                    fold_importance_df["split_id"] = split_id
+                    fold_importance_df["seed_id"] = seed_id
+                    fold_importance_df["fold"] = fold
+                    self.feature_importance_df = pd.concat([self.feature_importance_df, fold_importance_df], axis=0)
+
+            if RCFG.select_feature:
+                self.logger.info('Retrain LightGBM with selected features.')
+                self._train_fold_seed(mode='second', split_id=split_id)
 
         if RCFG.select_feature:
-            self.logger.info('Retrain LightGBM with selected features.')
-            self._train_fold_seed(mode='second')
+            self.final_score = np.mean(list(self.second_cvscore.values()))
+        else:
+            self.final_score = np.mean(list(self.first_cvscore.values()))
 
-        # self.models_dictをpickleで保存
+        self.feature_importance_df.to_csv(f'{ENV.output_dir}feature_importance.csv', index=False)
         with open(f'{ENV.output_dir}models_dict.pickle', 'wb') as f:
             self.logger.info(f'save models_dict to {ENV.output_dir}models_dict.pickle')
             pickle.dump(self.models_dict, f)
@@ -633,9 +652,18 @@ class Runner():
 
     def write_sheet(self, ):
         self.logger.info('Write scores to google sheet.')
-
         nowstr_jst = str(datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime('%Y-%m-%d %H:%M:%S'))
-        data = [nowstr_jst, ENV.commit_hash, class_vars_to_dict(RCFG)] + self.data_to_write
+
+        data = [
+            nowstr_jst, 
+            ENV.commit_hash, 
+            class_vars_to_dict(RCFG), 
+            self.first_oofscores, 
+            self.first_cvscore, 
+            self.second_oofscores, 
+            self.second_cvscore, 
+            self.final_score
+        ]
         self.sheet.write(data, sheet_name='cvscores')
     
 
@@ -648,13 +676,14 @@ class Runner():
         
         self.logger.info('Start prediction.')
         test_predict_list = []
-        for i in range(RCFG.cnt_seed): 
-            for fold in range(RCFG.n_splits):
-                model = self.models_dict[f'{fold}_{i}']
-                train_cols = model.feature_name_
-                X_test = self.test_feats[train_cols]
-                test_predict = model.predict(X_test)
-                test_predict_list.append(test_predict)
+        for split_id in range(RCFG.split_cnt):
+            for seed_id in range(RCFG.cnt_seed): 
+                for fold in range(RCFG.n_splits):
+                    model = self.models_dict[f'{split_id}_{seed_id}_{fold}']
+                    train_cols = model.feature_name_
+                    X_test = self.test_feats[train_cols]
+                    test_predict = model.predict(X_test)
+                    test_predict_list.append(test_predict)
         
         self.logger.info('Save submission.csv')
         self.test_feats['score'] = np.mean(test_predict_list, axis=0)
