@@ -218,10 +218,30 @@ class Preprocessor:
         ret.columns = cols
     
         return ret
+
+    def _tf_idf_transform(self, df, ret):
+        """
+        カウントデータをtf-idfに変換する
+        """
+
+        cnts = ret.sum(1)
+        for col in ret.columns:
+            if col in self.idf.keys():
+                idf = self.idf[col]
+            else:
+                idf = df.shape[0] / (ret[col].sum() + 1)
+                idf = np.log(idf)
+                self.idf[col] = idf
+
+            ret[col] = 1 + np.log(ret[col] / cnts)
+            ret[col] *= idf
+
+        return ret
     
     def get_count(self, df, colname, target_list, suffix=''):
         ret = self._get_count_dataframe(df, colname, target_list, suffix)
-        return ret
+        return self._tf_idf_transform(df, ret)
+        # return ret
 
     def match_punctuations(self, df):
         tmp_df = df.groupby('id').agg({'down_event': list}).reset_index()
