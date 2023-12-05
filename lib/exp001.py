@@ -242,9 +242,8 @@ class Preprocessor:
 
     def get_count(self, df, colname, target_list, suffix=''):
         ret = self._get_count_dataframe(df, colname, target_list, suffix)
-        # return self._tf_idf_transform(df, ret)
-        return ret
-
+        return self._tf_idf_transform(df, ret)
+        # return ret
 
     def match_punctuations(self, df):
         tmp_df = df.groupby('id').agg({'down_event': list}).reset_index()
