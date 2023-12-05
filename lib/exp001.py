@@ -42,16 +42,16 @@ class RCFG:
     run_name = 'exp001'
     debug = True
     debug_size = 100
-    split_cnt = 2
-    n_splits = 2
-    cnt_seed = 2
+    split_cnt = 5
+    n_splits = 5
+    cnt_seed = 5
     base_seed = 42
     preprocess_train = False
     predict = False
     load_model = False
     select_feature = True
-    use_feature_rank = 200
-    use_random_features = True
+    use_feature_rank = 500
+    use_random_features = False
     threshold_random_features = 15
     lgbm_params = {
         "objective": "regression",
@@ -598,14 +598,14 @@ class Runner():
 
         if RCFG.debug:
             self.logger.info('Debug mode. Decrease training time.')
+            RCFG.split_cnt = 2
             RCFG.cnt_seed = 2
-            RCFG.n_splits = 3
+            RCFG.n_splits = 2
 
         if RCFG.use_random_features:
             self.logger.info('Add random features.')
             self.train_feats = add_random_feature(self.train_feats)
 
-        
         self.logger.info(f'Start training. train_feats shape: {self.train_feats.shape}')
         self.feature_importance_df = pd.DataFrame()
         self.models_dict = {}
@@ -619,7 +619,9 @@ class Runner():
             for fold, (_, valid_idx) in enumerate(kf.split(self.train_feats)):
                 self.train_feats.loc[valid_idx, 'fold'] = fold
 
-            self.logger.info(f'Train LightGBM with split seed: {1030+split_id}.')    
+            self.logger.info('--------------------------------------------------')
+            self.logger.info(f'Train LightGBM with split seed: {1030+split_id}.') 
+            self.logger.info('--------------------------------------------------')   
             self._train_fold_seed(mode='first', split_id=split_id)
 
             self.logger.info('Calculate feature importance.')
