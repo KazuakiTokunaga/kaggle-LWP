@@ -289,10 +289,7 @@ class Preprocessor:
         df_up_not_q = df_up_not_q.groupby('id')['event_id'].agg(['count'])
         df_up_not_q.columns = ['up_not_q_count']
 
-        df_diff = df_diff.merge(df_down_not_q, on='id', how='left')
-        df_diff = df_diff.merge(df_up_not_q, on='id', how='left')
-
-        return df_diff
+        return df_diff, df_down_not_q, df_up_not_q
     
     def get_pause(self, df):
 
@@ -422,9 +419,9 @@ class Preprocessor:
 
         input_words_df = self.get_input_words(df)
         paused_df = self.get_pause(df)
-        diff_df = self.get_down_up_diff(df)
+        df_diff, df_down_not_q, df_up_not_q  = self.get_down_up_diff(df)
         first_move_df = self.get_first_move(df)
-        for tmp_df in [input_words_df, paused_df, diff_df, first_move_df]:
+        for tmp_df in [input_words_df, paused_df,  df_diff, df_down_not_q, df_up_not_q, first_move_df]:
             feats = feats.merge(tmp_df, on='id', how='left')
 
         print("Engineering ratios data")
@@ -496,14 +493,11 @@ class Runner():
         preprocessor = Preprocessor(seed=42)
         feats = preprocessor.make_feats(df)
 
-        if mode == 'train':
-            self.nan_cols = feats.columns[feats.isna().any()].tolist()
-            feats = feats.drop(columns=self.nan_cols)
-
         feats = feats.merge(word_agg_df, on='id', how='left')
         feats = feats.merge(sent_agg_df, on='id', how='left')
         feats = feats.merge(paragraph_agg_df, on='id', how='left')
         feats = feats.merge(countvectorize_df, on='id', how='left')
+        feats = feats.fillna(-1000000)
 
         return feats
 
