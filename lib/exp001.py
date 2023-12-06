@@ -277,6 +277,7 @@ class Preprocessor:
             colname = [ col + suffix for col in ['pause_minus_01_sec', 'pause_minus_sec', 'pauses_1_sec','pauses_2_sec', 'pauses_5_sec']]
         else:
             lst = [
+                lambda x: (x < -200).sum(),
                 lambda x: (x < -100).sum(),
                 lambda x: (x < 0).sum(),
                 lambda x: ((x > 500) & (x < 1000)).sum(),
@@ -289,7 +290,7 @@ class Preprocessor:
                 lambda x: (x > 60000).sum(),
             ]
             colname = [
-                'pause_minus_01_sec', 'pause_minus_sec', 'pauses_half_sec', 'pauses_1_sec', 'pauses_1_half_sec', 
+                'pause_minus_02_sec', 'pause_minus_01_sec', 'pause_minus_sec', 'pauses_half_sec', 'pauses_1_sec', 'pauses_1_half_sec', 
                 'pauses_2_sec', 'pauses_3_sec', 'pauses_10_sec', 'pauses_30_sec', 'pauses_60_sec'
             ]
 
@@ -364,7 +365,6 @@ class Preprocessor:
         df_target = df.copy()
         self.create_gap_to_df(df_target, gaps)
         
-        print("Engineering statistical summaries for features")
         feats_stat = [
             ('event_id', ['max']),
             ('up_time', ['max', 'min', 'mean', 'median', q03, q10, q25, q75, q90, q97, 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
@@ -578,7 +578,7 @@ class Runner():
         self.logger.info('Start preprocessing.')
         
         if RCFG.preprocess_train:
-            self.logger.info('Prepprocess train data. Create features for train data.')
+            self.logger.info('Preprocess train data. Create features for train data.')
             train_feats = self._add_features(self.train_logs, self.train_essays, mode='train')
             self.train_feats = train_feats.merge(self.train_scores, on='id', how='left')
             self.train_feats.to_csv(f'{ENV.output_dir}train_feats.csv', index=False)
