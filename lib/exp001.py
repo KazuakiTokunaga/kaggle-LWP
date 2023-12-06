@@ -513,7 +513,8 @@ class Runner():
             oof_valid_preds = np.zeros(self.train_feats.shape[0])
 
             for fold in range(RCFG.n_splits):
-                seed = RCFG.base_seed + (2 ** (seed_id+2)) * (5 ** (split_id+2)) * (3 ** (fold+1))
+                seed = RCFG.base_seed + split_id * (RCFG.n_splits * RCFG.cnt_seed) + seed_id * RCFG.n_splits + fold
+                self.logger.info(f'Start training with model seed {seed} for seed_id {seed_id} fold {fold}.')
 
                 if mode == 'second':
                     cond = (self.feature_importance_df['split_id'] == split_id) & (self.feature_importance_df['fold'] == fold)
