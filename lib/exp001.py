@@ -273,8 +273,11 @@ class Preprocessor:
                 lambda x: (x > 1000).sum(),
                 lambda x: (x > 2000).sum(),
                 lambda x: (x > 5000).sum(),
+                lambda x: (x > 10000).sum(),
             ]
-            colname = [ col + suffix for col in ['pause_minus_01_sec', 'pause_minus_sec', 'pauses_1_sec','pauses_2_sec', 'pauses_5_sec']]
+            colname = [ col + suffix for col in [
+                'pause_minus_01_sec', 'pause_minus_sec', 'pauses_1_sec','pauses_2_sec', 'pauses_5_sec', 'pauses_10_sec'
+            ]]
         else:
             lst = [
                 lambda x: (x < -200).sum(),
@@ -428,7 +431,7 @@ class Preprocessor:
     def make_feats_limited(self, df, from_t=0, to_t=10**10, gaps=[1, 5, 10, 50]):
 
         feats = pd.DataFrame({'id': df['id'].unique().tolist()})
-        suffix = f'_{from_t}_{to_t}_limited'
+        suffix = f'_{from_t // 60000}_{to_t // 60000}_limited'
         df_target = df[(df['up_time'] >= from_t) & (df['up_time'] <= to_t)].copy()
 
         self.create_gap_to_df(df_target, gaps)
