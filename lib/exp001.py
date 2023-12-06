@@ -247,23 +247,8 @@ class Preprocessor:
         tmp_df[f'input_word_length_std{suffix}'] = tmp_df['text_change'].apply(lambda x: np.std([len(i) for i in x] if len(x) > 0 else 0))
         tmp_df.drop(['text_change'], axis=1, inplace=True)
         return tmp_df
-    
-    def get_down_up_diff(self, df):
 
-        df_diff = df[df['down_event'] != df['up_event']]
-        df_diff = df_diff.groupby('id')['event_id'].agg(['count'])
-        df_diff.columns = ['upevent_downevent_diff_count']
 
-        df_down_not_q = df[(df['down_event'].str.match(r'^[a-z]$'))&(df['down_event']!='q')]
-        df_down_not_q = df_down_not_q.groupby('id')['event_id'].agg(['count'])
-        df_down_not_q.columns = ['down_not_q_count']
-
-        df_up_not_q = df[(df['up_event'].str.match(r'^[a-z]$'))&(df['up_event']!='q')]
-        df_up_not_q = df_up_not_q.groupby('id')['event_id'].agg(['count'])
-        df_up_not_q.columns = ['up_not_q_count']
-
-        return df_diff, df_down_not_q, df_up_not_q
-    
     def get_pause(self, df, suffix=""):
 
         if suffix:
@@ -325,6 +310,10 @@ class Preprocessor:
         return df_first_input
     
     def create_gap_to_df(self, df, gaps):
+
+        #'^[a-z]$' をothersに置き換える
+        df['down_event'] = df['down_event'].apply(lambda x: 'other_char' if re.match(r'^[a-z]$', x) else x)
+        df['up_event'] = df['up_event'].apply(lambda x: 'other_char' if re.match(r'^[a-z]$', x) else x)
 
         for gap in gaps:
             df[f'up_time_shift{gap}'] = df.groupby('id')['up_time'].shift(gap)
@@ -414,9 +403,8 @@ class Preprocessor:
 
         input_words_df = self.get_input_words(df_target)
         paused_df = self.get_pause(df_target)
-        df_diff, df_down_not_q, df_up_not_q  = self.get_down_up_diff(df_target)
         first_move_df = self.get_first_move(df_target)
-        for tmp_df in [input_words_df, paused_df,  df_diff, df_down_not_q, df_up_not_q, first_move_df]:
+        for tmp_df in [input_words_df, paused_df, first_move_df]:
             feats = feats.merge(tmp_df, on='id', how='left')
 
         feats = feats.copy()
