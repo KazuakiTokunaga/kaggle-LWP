@@ -174,11 +174,6 @@ class Preprocessor:
     
     def __init__(self, seed=42):
         self.seed = seed
-
-        
-        self.gaps = [1, 3, 5, 10, 20, 50, 100]
-        self.idf = defaultdict(float)
-        
         # text_changes, punctuationsを含む特殊文字をテキストに変換する辞書
         self.special_char_to_text = {
             ' ': 'space', '\n': 'enter', '.': 'period', ',': 'comma', "'": 'apostrophe', '"': 'quotation',
@@ -223,7 +218,7 @@ class Preprocessor:
         ret = self._get_count_dataframe(df, colname, target_list, suffix)
         return ret
 
-    def match_punctuations(self, df):
+    def match_punctuations(self, df, suffix=""):
         tmp_df = df.groupby('id').agg({'down_event': list}).reset_index()
         ret = list()
         for li in tqdm(tmp_df['down_event'].values):
@@ -234,11 +229,11 @@ class Preprocessor:
                 if k in ['"', '.', ',', "'", '-', ';', ':', '?', '!', '<', '>', '/', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+']:
                     cnt += v
             ret.append(cnt)
-        ret = pd.DataFrame({'punct_cnt': ret}) # ここで含まれるカラムは1つのみ
+        ret = pd.DataFrame({f'punct_cnt{suffix}': ret}) # ここで含まれるカラムは1つのみ
         return ret
 
 
-    def get_input_words(self, df):
+    def get_input_words(self, df, suffix=""):
         # =>はactivityがReplaceの時のみ出現する
         tmp_df = df[(~df['text_change'].str.contains('=>'))&(df['text_change'] != 'NoChange')].reset_index(drop=True)
         tmp_df = tmp_df.groupby('id').agg({'text_change': list}).reset_index()
@@ -246,10 +241,10 @@ class Preprocessor:
         # この集計はactivityが'Remove/Cut'や'Move'のときを正しく考慮していない
         tmp_df['text_change'] = tmp_df['text_change'].apply(lambda x: ''.join(x))
         tmp_df['text_change'] = tmp_df['text_change'].apply(lambda x: re.findall(r'q+', x))
-        tmp_df['input_word_count'] = tmp_df['text_change'].apply(len)
-        tmp_df['input_word_length_mean'] = tmp_df['text_change'].apply(lambda x: np.mean([len(i) for i in x] if len(x) > 0 else 0))
-        tmp_df['input_word_length_max'] = tmp_df['text_change'].apply(lambda x: np.max([len(i) for i in x] if len(x) > 0 else 0))
-        tmp_df['input_word_length_std'] = tmp_df['text_change'].apply(lambda x: np.std([len(i) for i in x] if len(x) > 0 else 0))
+        tmp_df[f'input_word_count{suffix}'] = tmp_df['text_change'].apply(len)
+        tmp_df[f'input_word_length_mean{suffix}'] = tmp_df['text_change'].apply(lambda x: np.mean([len(i) for i in x] if len(x) > 0 else 0))
+        tmp_df[f'input_word_length_max{suffix}'] = tmp_df['text_change'].apply(lambda x: np.max([len(i) for i in x] if len(x) > 0 else 0))
+        tmp_df[f'input_word_length_std{suffix}'] = tmp_df['text_change'].apply(lambda x: np.std([len(i) for i in x] if len(x) > 0 else 0))
         tmp_df.drop(['text_change'], axis=1, inplace=True)
         return tmp_df
     
@@ -269,25 +264,40 @@ class Preprocessor:
 
         return df_diff, df_down_not_q, df_up_not_q
     
-    def get_pause(self, df):
+    def get_pause(self, df, suffix=""):
 
-        paused_df = df.groupby('id')['action_time_gap1'].agg([
-            lambda x: (x < -1).sum(),
-            lambda x: (x < 0).sum(),
-            lambda x: ((x > 0.5) & (x < 1)).sum(),
-            lambda x: ((x > 1) & (x < 1.5)).sum(),
-            lambda x: ((x > 1.5) & (x < 2)).sum(),
-            lambda x: ((x > 2) & (x < 3)).sum(),
-            lambda x: (x > 3).sum(),
-            lambda x: (x > 10).sum(),
-            lambda x: (x > 50).sum(),
-            lambda x: (x > 100).sum(),
-            lambda x: (x > 1000).sum(),
-        ])
-        paused_df.columns = [
-            'pause_minus_1_sec', 'pause_minus_sec', 'pauses_half_sec', 'pauses_1_sec', 'pauses_1_half_sec', 'pauses_2_sec', 'pauses_3_sec',
-            'pauses_10_sec', 'pauses_50_sec', 'pauses_100_sec', 'pauses_1000_sec'
-        ]
+        if suffix:
+            lst = [
+                lambda x: (x < -1).sum(),
+                lambda x: (x < 0).sum(),
+                lambda x: (x > 3).sum(),
+                lambda x: (x > 100).sum(),
+                lambda x: (x > 1000).sum(),
+            ]
+            colname = [ col + suffix for col in ['pause_minus_1_sec', 'pause_minus_sec', 'pauses_3_sec','pauses_100_sec', 'pauses_1000_sec']]
+        else:
+            lst = [
+                lambda x: (x < -2).sum(),
+                lambda x: (x < -1).sum(),
+                lambda x: (x < 0).sum(),
+                lambda x: ((x > 0.5) & (x < 1)).sum(),
+                lambda x: ((x > 1) & (x < 1.5)).sum(),
+                lambda x: ((x > 1.5) & (x < 2)).sum(),
+                lambda x: ((x > 2) & (x < 3)).sum(),
+                lambda x: (x > 3).sum(),
+                lambda x: (x > 10).sum(),
+                lambda x: (x > 50).sum(),
+                lambda x: (x > 100).sum(),
+                lambda x: (x > 1000).sum(),
+            ]
+            colname = [
+                'pause_minus_2_sec', 'pause_minus_1_sec', 'pause_minus_sec', 'pauses_half_sec', 'pauses_1_sec', 'pauses_1_half_sec', 
+                'pauses_2_sec', 'pauses_3_sec', 'pauses_10_sec', 'pauses_50_sec', 'pauses_100_sec', 'pauses_1000_sec'
+            ]
+
+
+        paused_df = df.groupby('id')['action_time_gap1'].agg(lst)
+        paused_df.columns = colname
 
         return paused_df
     
@@ -302,7 +312,7 @@ class Preprocessor:
         df_before_event = self.get_count(
             df = df_before_event_base, 
             colname = 'down_event', 
-            target_list = ["Backspace", 'CapsLock', 'Leftclick', 'Shift'], 
+            target_list = ['CapsLock', 'Leftclick', 'Shift'], 
             suffix='_before_first_input'
         )
         df_before_event.index = df_before_event_base['id'].drop_duplicates().values
@@ -311,32 +321,50 @@ class Preprocessor:
         df_first_input = df_first_input.merge(df_before_event, on='id', how='left').fillna(0)
 
         return df_first_input
+    
+    def create_gap_to_df(self, df, gaps):
 
-
-
-    def make_feats(self, df):
-        
-        feats = pd.DataFrame({'id': df['id'].unique().tolist()})
-        
-        print("Engineering time data")
-        for gap in self.gaps:
+        for gap in gaps:
             df[f'up_time_shift{gap}'] = df.groupby('id')['up_time'].shift(gap)
             df[f'action_time_gap{gap}'] = df['down_time'] - df[f'up_time_shift{gap}']
-        df.drop(columns=[f'up_time_shift{gap}' for gap in self.gaps], inplace=True)
+        df.drop(columns=[f'up_time_shift{gap}' for gap in gaps], inplace=True)
 
-        print("Engineering cursor position data")
-        for gap in self.gaps:
+        for gap in gaps:
             df[f'cursor_position_shift{gap}'] = df.groupby('id')['cursor_position'].shift(gap)
             df[f'cursor_position_change{gap}'] = df['cursor_position'] - df[f'cursor_position_shift{gap}']
             df[f'cursor_position_abs_change{gap}'] = np.abs(df[f'cursor_position_change{gap}'])
-        df.drop(columns=[f'cursor_position_shift{gap}' for gap in self.gaps], inplace=True)
+        df.drop(columns=[f'cursor_position_shift{gap}' for gap in gaps], inplace=True)
 
-        print("Engineering word count data")
-        for gap in self.gaps:
+        for gap in gaps:
             df[f'word_count_shift{gap}'] = df.groupby('id')['word_count'].shift(gap)
             df[f'word_count_change{gap}'] = df['word_count'] - df[f'word_count_shift{gap}']
             df[f'word_count_abs_change{gap}'] = np.abs(df[f'word_count_change{gap}'])
-        df.drop(columns=[f'word_count_shift{gap}' for gap in self.gaps], inplace=True)
+        df.drop(columns=[f'word_count_shift{gap}' for gap in gaps], inplace=True)
+
+
+    def create_base_feat(self, feats, df, feats_stat, suffix=""):
+
+        pbar = tqdm(feats_stat)
+        for item in pbar:
+            colname, methods = item[0], item[1]
+            for method in methods:
+                pbar.set_postfix()
+                if isinstance(method, str):
+                    method_name = method
+                else:
+                    method_name = method.__name__
+                pbar.set_postfix(column=colname, method=method_name)
+                tmp_df = df.groupby(['id']).agg({colname: method}).reset_index().rename(columns={colname: f'{colname}_{method_name}{suffix}'})
+                feats = feats.merge(tmp_df, on='id', how='left')
+        
+        return feats
+
+
+    def make_feats(self, df, gaps=[1, 3, 5, 10, 20, 50, 100]):
+        
+        df_target = df.copy()
+        feats = pd.DataFrame({'id': df['id'].unique().tolist()})
+        self.create_gap_to_df(df_target, gaps)
         
         print("Engineering statistical summaries for features")
         feats_stat = [
@@ -349,60 +377,47 @@ class Preprocessor:
             ('up_event', ['nunique']),
             ('text_change', ['nunique']),
             ('cursor_position', ['nunique', 'max', 'median', q03, q10, q25, q75, q90, q97, 'sem', 'mean', 'last']),
-            ('word_count', ['nunique', 'max', 'median', q03, q10, q25, q75, q90, q97, 'sem', 'mean', 'last'])]
-        for gap in self.gaps:
+            ('word_count', ['nunique', 'max', 'median', q03, q10, q25, q75, q90, q97, 'sem', 'mean', 'last'])
+        ]
+        for gap in gaps:
             feats_stat.extend([
                 (f'action_time_gap{gap}', ['max', 'min', 'mean', 'median', q03, q10, q25, q75, q90, q97, 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
                 (f'cursor_position_change{gap}', ['max', 'min', 'mean', 'median', q03, q10, q25, q75, q90, q97, 'sem', 'sum', 'skew', pd.DataFrame.kurt]),
                 (f'word_count_change{gap}', ['max', 'min', 'mean', 'median', q03, q10, q25, q75, q90, q97, 'sem', 'sum', 'skew', pd.DataFrame.kurt])
             ])
         
-        pbar = tqdm(feats_stat)
-        for item in pbar:
-            colname, methods = item[0], item[1]
-            for method in methods:
-                pbar.set_postfix()
-                if isinstance(method, str):
-                    method_name = method
-                else:
-                    method_name = method.__name__
-                pbar.set_postfix(column=colname, method=method_name)
-                tmp_df = df.groupby(['id']).agg({colname: method}).reset_index().rename(columns={colname: f'{colname}_{method_name}'})
-                feats = feats.merge(tmp_df, on='id', how='left')
+        feats = self.create_base_feat(feats, df_target, feats_stat)
 
-
-        print("Engineering activity counts data")
         activity_df = self.get_count(
-            df = df,
+            df = df_target,
             colname = 'activity', 
             target_list = ['Input', 'Remove/Cut', 'Nonproduction', 'Replace', 'Paste']
         )
         down_df = self.get_count(
-            df = df, 
+            df = df_target, 
             colname = 'down_event',
             target_list =  [
                 'q', 'Space', 'Backspace', 'Shift', 'ArrowRight', 'Leftclick', 'ArrowLeft', '.', ',', '"',
-                'ArrowDown', 'ArrowUp', 'Enter', 'CapsLock', "'", 'Delete', 'Unidentified', "Control", '"', '-', '?', ';', '=', 'Tab',
-                '/', 'Rightclick', ':', '(', ')', '\\', 'ContextMenu', 'End', '!', 'Meta', 'Alt', 'c', 'v', 'z', 'a', 'x'
+                'ArrowDown', 'ArrowUp', 'Enter', 'CapsLock', "'", 'Delete', "Control", '"', '-', '?', ';', '=', 'Tab',
+                '/', 'Rightclick', ':', '(', ')', '\\', 'End', '!', 'Meta', 'Alt'
             ]
         )
         text_change_df = self.get_count(
-            df = df, 
+            df = df_target, 
             colname = 'text_change', 
             target_list = ['q', ' ', 'NoChange', '.', ',', '\n', "'", '"', '-', '?', ';', '=', '/', '\\', ':']
         )
-        punctuations_df = self.match_punctuations(df)
+        punctuations_df = self.match_punctuations(df_target)
         for tmp_df in [activity_df, down_df, text_change_df, punctuations_df]:
             feats = pd.concat([feats, tmp_df], axis=1)
 
-        input_words_df = self.get_input_words(df)
-        paused_df = self.get_pause(df)
-        df_diff, df_down_not_q, df_up_not_q  = self.get_down_up_diff(df)
-        first_move_df = self.get_first_move(df)
+        input_words_df = self.get_input_words(df_target)
+        paused_df = self.get_pause(df_target)
+        df_diff, df_down_not_q, df_up_not_q  = self.get_down_up_diff(df_target)
+        first_move_df = self.get_first_move(df_target)
         for tmp_df in [input_words_df, paused_df,  df_diff, df_down_not_q, df_up_not_q, first_move_df]:
             feats = feats.merge(tmp_df, on='id', how='left')
 
-        print("Engineering ratios data")
         feats = feats.copy()
         feats['word_time_ratio'] = feats['word_count_max'] / feats['up_time_max']
         feats['word_event_ratio'] = feats['word_count_max'] / feats['event_id_max']
@@ -410,6 +425,73 @@ class Preprocessor:
         feats['idle_time_ratio'] = feats['action_time_gap1_sum'] / feats['up_time_max']
 
         return feats
+    
+
+    def make_feats_limited(self, df, from_t=0, to_t=10**10, gaps=[1, 5, 10, 50]):
+
+        feats = pd.DataFrame({'id': df['id'].unique().tolist()})
+        suffix = f'_{from_t}_{to_t}_limited'
+        df_target = df[(df['up_time'] >= from_t) & (df['up_time'] <= to_t)].copy()
+
+        self.create_gap_to_df(df_target, gaps)
+        feats_stat = [
+            ('event_id', ['min', 'max', 'count']),
+            ('up_time', ['median', q10, q90, 'skew']),
+            ('action_time', ['median', q10, q90, 'skew']),
+            ('activity', ['nunique']),
+            ('down_event', ['nunique']),
+            ('up_event', ['nunique']),
+            ('text_change', ['nunique']),
+            ('cursor_position', ['min', 'max', 'median', q25, q75, 'skew', 'last']),
+            ('word_count', ['min', 'max', 'median', q25, q75, 'skew', 'last'])
+        ]
+        for gap in gaps:
+            feats_stat.extend([
+                (f'action_time_gap{gap}', ['max', 'min', 'median', q10, q90, 'sum', 'skew']),
+                (f'cursor_position_change{gap}', ['max', 'min', 'median', q10, q90, 'sum', 'skew']),
+                (f'word_count_change{gap}', ['max', 'min', 'median', q10, q90, 'sum', 'skew'])
+            ])
+        
+        feats = self.create_base_feat(feats, df_target, feats_stat, suffix=suffix)
+
+        activity_df = self.get_count(
+            df = df_target,
+            colname = 'activity', 
+            target_list = ['Input', 'Remove/Cut', 'Nonproduction', 'Replace', 'Paste'],
+            suffix=suffix
+        )
+        down_df = self.get_count(
+            df = df_target, 
+            colname = 'down_event',
+            target_list =  [
+                'q', 'Space', 'Backspace', 'Shift', 'ArrowRight', 'Leftclick', 'ArrowLeft', '.', ',', '"',
+                'ArrowDown', 'ArrowUp', 'Enter', 'CapsLock', "'", '"', '-', '?', '=', 'Tab', '\\', 'End',
+            ],
+            suffix=suffix
+        )
+        text_change_df = self.get_count(
+            df = df_target, 
+            colname = 'text_change', 
+            target_list = ['q', ' ', '.', ',', '\n', "'", '"', '-', '?'],
+            suffix = suffix
+        )
+        punctuations_df = self.match_punctuations(df_target, suffix=suffix)
+        for tmp_df in [activity_df, down_df, text_change_df, punctuations_df]:
+            feats = pd.concat([feats, tmp_df], axis=1)
+
+        input_words_df = self.get_input_words(df_target, suffix=suffix)
+        paused_df = self.get_pause(df_target, suffix=suffix)
+        for tmp_df in [input_words_df, paused_df]:
+            feats = feats.merge(tmp_df, on='id', how='left')
+
+        feats = feats.copy()
+        feats[f'word_time_ratio{suffix}'] = feats[f'word_count_max{suffix}'] / feats[f'event_id_count{suffix}']
+        feats[f'word_event_ratio{suffix}'] = feats[f'word_count_max{suffix}'] / feats[f'event_id_count{suffix}']
+        feats[f'event_time_ratio{suffix}'] = feats[f'event_id_max{suffix}']  / feats[f'event_id_count{suffix}']
+        feats[f'idle_time_ratio{suffix}'] = feats[f'action_time_gap1_sum{suffix}'] / feats[f'event_id_count{suffix}']
+
+        return feats
+        
 
 
 class Runner():
@@ -472,10 +554,19 @@ class Runner():
         preprocessor = Preprocessor(seed=42)
         feats = preprocessor.make_feats(df)
 
+        feats1 = preprocessor.make_feats_limited(df, to_t=300000)
+        feats2 = preprocessor.make_feats_limited(df, from_t=300000, to_t=900000)
+        feats3 = preprocessor.make_feats_limited(df, from_t=900000, to_t=1500000)
+        feats4 = preprocessor.make_feats_limited(df, from_t=1500000)
+
         feats = feats.merge(word_agg_df, on='id', how='left')
         feats = feats.merge(sent_agg_df, on='id', how='left')
         feats = feats.merge(paragraph_agg_df, on='id', how='left')
         feats = feats.merge(countvectorize_df, on='id', how='left')
+        feats = feats.merge(feats1, on='id', how='left')
+        feats = feats.merge(feats2, on='id', how='left')
+        feats = feats.merge(feats3, on='id', how='left')
+        feats = feats.merge(feats4, on='id', how='left')
         feats = feats.fillna(-1000000)
 
         return feats
@@ -509,7 +600,7 @@ class Runner():
         last = False if mode == 'first' and RCFG.select_feature else True
 
         for seed_id in range(RCFG.cnt_seed): 
-            self.logger.info(f'Start training for seed {seed_id}.')            
+            self.logger.info(f'Start training for seed_id {seed_id}.')            
             oof_valid_preds = np.zeros(self.train_feats.shape[0])
 
             for fold in range(RCFG.n_splits):
