@@ -330,7 +330,7 @@ class Preprocessor:
             ],
             suffix='_over_30min'
         )
-        for tmp_df in [count_df, activity_df, down_df]:
+        for tmp_df in [activity_df, down_df]:
             feats = pd.concat([feats, tmp_df], axis=1)
 
         return feats
