@@ -282,7 +282,6 @@ class Preprocessor:
                 'pauses_2_sec', 'pauses_3_sec', 'pauses_10_sec', 'pauses_30_sec', 'pauses_60_sec'
             ]
 
-
         paused_df = df.groupby('id')['action_time_gap1'].agg(lst)
         paused_df.columns = colname
 
@@ -308,6 +307,29 @@ class Preprocessor:
         df_first_input = df_first_input.merge(df_before_event, on='id', how='left').fillna(0)
 
         return df_first_input
+    
+    def over_30min(self, df):
+        
+        feats = pd.DataFrame({'id': df['id'].unique().tolist()})
+        df_target = df[(df['up_time'] >= 1800000)].copy()
+        activity_df = self.get_count(
+            df = df_target,
+            colname = 'activity', 
+            target_list = ['Input', 'Remove/Cut', 'Nonproduction', 'Replace', 'Paste'],
+            suffix='_over_30min'
+        )
+        down_df = self.get_count(
+            df = df_target, 
+            colname = 'down_event',
+            target_list =  [
+                'q', 'Space', 'Backspace', 'Shift', 'ArrowRight', 'Leftclick', 'ArrowLeft', '.', ',', '"', 'ArrowDown', 'ArrowUp', 'Delete'
+            ],
+            suffix='_over_30min'
+        )
+        for tmp_df in [activity_df, down_df]:
+            feats = pd.concat([feats, tmp_df], axis=1)
+
+        return feats
     
     def create_gap_to_df(self, df, gaps):
 
@@ -404,7 +426,8 @@ class Preprocessor:
         input_words_df = self.get_input_words(df_target)
         paused_df = self.get_pause(df_target)
         first_move_df = self.get_first_move(df_target)
-        for tmp_df in [input_words_df, paused_df, first_move_df]:
+        over30_df = self.over_30min(df_target)
+        for tmp_df in [input_words_df, paused_df, first_move_df, over30_df]:
             feats = feats.merge(tmp_df, on='id', how='left')
 
         feats = feats.copy()
@@ -416,7 +439,7 @@ class Preprocessor:
         return feats
     
 
-    def make_feats_limited(self, df, from_t=0, to_t=10**10, gaps=[1, 5, 10, 50]):
+    def make_feats_limited(self, df, from_t=0, to_t=2400000, gaps=[1, 5, 10, 50]):
 
         feats = pd.DataFrame({'id': df['id'].unique().tolist()})
         suffix = f'_{from_t // 60000}_{to_t // 60000}_limited'
