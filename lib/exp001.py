@@ -268,31 +268,29 @@ class Preprocessor:
 
         if suffix:
             lst = [
-                lambda x: (x < -1).sum(),
+                lambda x: (x < -100).sum(),
                 lambda x: (x < 0).sum(),
-                lambda x: (x > 3).sum(),
-                lambda x: (x > 100).sum(),
                 lambda x: (x > 1000).sum(),
+                lambda x: (x > 2000).sum(),
+                lambda x: (x > 5000).sum(),
             ]
-            colname = [ col + suffix for col in ['pause_minus_1_sec', 'pause_minus_sec', 'pauses_3_sec','pauses_100_sec', 'pauses_1000_sec']]
+            colname = [ col + suffix for col in ['pause_minus_01_sec', 'pause_minus_sec', 'pauses_1_sec','pauses_2_sec', 'pauses_5_sec']]
         else:
             lst = [
-                lambda x: (x < -2).sum(),
-                lambda x: (x < -1).sum(),
+                lambda x: (x < -100).sum(),
                 lambda x: (x < 0).sum(),
-                lambda x: ((x > 0.5) & (x < 1)).sum(),
-                lambda x: ((x > 1) & (x < 1.5)).sum(),
-                lambda x: ((x > 1.5) & (x < 2)).sum(),
-                lambda x: ((x > 2) & (x < 3)).sum(),
-                lambda x: (x > 3).sum(),
-                lambda x: (x > 10).sum(),
-                lambda x: (x > 50).sum(),
-                lambda x: (x > 100).sum(),
-                lambda x: (x > 1000).sum(),
+                lambda x: ((x > 500) & (x < 1000)).sum(),
+                lambda x: ((x > 1000) & (x < 1500)).sum(),
+                lambda x: ((x > 1500) & (x < 2000)).sum(),
+                lambda x: ((x > 2000) & (x < 3000)).sum(),
+                lambda x: (x > 3000).sum(),
+                lambda x: (x > 10000).sum(),
+                lambda x: (x > 30000).sum(),
+                lambda x: (x > 60000).sum(),
             ]
             colname = [
-                'pause_minus_2_sec', 'pause_minus_1_sec', 'pause_minus_sec', 'pauses_half_sec', 'pauses_1_sec', 'pauses_1_half_sec', 
-                'pauses_2_sec', 'pauses_3_sec', 'pauses_10_sec', 'pauses_50_sec', 'pauses_100_sec', 'pauses_1000_sec'
+                'pause_minus_01_sec', 'pause_minus_sec', 'pauses_half_sec', 'pauses_1_sec', 'pauses_1_half_sec', 
+                'pauses_2_sec', 'pauses_3_sec', 'pauses_10_sec', 'pauses_30_sec', 'pauses_60_sec'
             ]
 
 
@@ -362,8 +360,8 @@ class Preprocessor:
 
     def make_feats(self, df, gaps=[1, 3, 5, 10, 20, 50, 100]):
         
-        df_target = df.copy()
         feats = pd.DataFrame({'id': df['id'].unique().tolist()})
+        df_target = df.copy()
         self.create_gap_to_df(df_target, gaps)
         
         print("Engineering statistical summaries for features")
@@ -536,6 +534,7 @@ class Runner():
     ):
 
         # 22カラム
+        self.logger.info('Create features with reconstructed essay.')
         word_df = split_essays_into_words(df_essay)
         word_agg_df = compute_word_aggregations(word_df)
 
@@ -551,9 +550,11 @@ class Runner():
         paragraph_agg_df = compute_paragraph_aggregations(paragraph_df)
 
         # 400カラム
+        self.logger.info('Create features with full timeframe.')
         preprocessor = Preprocessor(seed=42)
         feats = preprocessor.make_feats(df)
 
+        self.logger.info('Create features with limited timeframe.')
         feats1 = preprocessor.make_feats_limited(df, to_t=300000)
         feats2 = preprocessor.make_feats_limited(df, from_t=300000, to_t=900000)
         feats3 = preprocessor.make_feats_limited(df, from_t=900000, to_t=1500000)
