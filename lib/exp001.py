@@ -339,7 +339,7 @@ class Preprocessor:
     def create_bursts(self, df, suffix=""):
 
         df_pl = pl.from_pandas(df)
-        feats = df['id'].unique()
+        feats = df_pl['id'].unique()
 
         temp = df_pl.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
         temp = temp.with_columns((abs(pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
