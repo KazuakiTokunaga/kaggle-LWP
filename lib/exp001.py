@@ -309,33 +309,6 @@ class Preprocessor:
 
         return df_first_input
     
-    def over_30min(self, df):
-        
-        df_target = df[(df['up_time'] >= 1800000)].copy()
-        feats = pd.DataFrame({'id': df_target['id'].unique().tolist()})
-
-        count_df = df_target.groupby('id')['event_id'].count().reset_index().rename(columns={'event_id': 'event_count_over_30min'})
-        feats = feats.merge(count_df, on='id', how='left')
-
-        activity_df = self.get_count(
-            df = df_target,
-            colname = 'activity', 
-            target_list = ['Input', 'Remove/Cut', 'Nonproduction'],
-            suffix='_over_30min'
-        )
-        down_df = self.get_count(
-            df = df_target, 
-            colname = 'down_event',
-            target_list =  [
-                'q', 'Space', 'Backspace', 'Shift', 'ArrowRight', 'Leftclick', 'ArrowLeft', '.', ',', '"', 'ArrowDown', 'ArrowUp', 'Delete'
-            ],
-            suffix='_over_30min'
-        )
-        for tmp_df in [activity_df, down_df]:
-            feats = pd.concat([feats, tmp_df], axis=1)
-
-        return feats
-    
     def create_bursts(self, df, suffix=""):
 
         df_pl = pl.from_pandas(df)
@@ -476,7 +449,6 @@ class Preprocessor:
         feats = feats.merge(self.get_input_words(df_target), on='id', how='left')
         feats = feats.merge(self.get_pause(df_target), on='id', how='left')
         feats = feats.merge(self.get_first_move(df_target), on='id', how='left')
-        feats = feats.merge(self.over_30min(df_target), on='id', how='left')
         feats = feats.merge(self.create_bursts(df_target), on='id', how='left')
         feats = feats.merge(self.product_to_keys(df_target, df_essay), on='id', how='left')
         feats = feats.merge(self.get_keys_pressed_per_second(df_target), on='id', how='left')
