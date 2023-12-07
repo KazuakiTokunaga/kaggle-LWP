@@ -367,7 +367,7 @@ class Preprocessor:
     def product_to_keys(self, df, essays, suffix=""):
         essays['product_len'] = essays.essay.str.len()
         tmp_df = df[df.activity.isin(['Input', 'Remove/Cut'])].groupby(['id']).agg({'activity': 'count'}).reset_index().rename(columns={'activity': 'keys_pressed'})
-        essays = essays.merge(tmp_df, on='id', how='left')
+        essays = essays.merge(tmp_df, on='id', how='inner')
         essays[f'product_to_keys{suffix}'] = essays['product_len'] / essays['keys_pressed']
         return essays[['id', f'product_to_keys{suffix}']]
 
