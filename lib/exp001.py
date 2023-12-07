@@ -54,6 +54,7 @@ class RCFG:
     use_feature_rank = 500
     use_random_features = False
     threshold_random_features = 15
+    add_split_features = False
     lgbm_params = {
         "objective": "regression",
         "metric": "rmse",
@@ -312,7 +313,7 @@ class Preprocessor:
 
         return df_first_input
     
-    
+
     def create_bursts(self, df, suffix=""):
 
         df_pl = pl.from_pandas(df)
@@ -598,20 +599,22 @@ class Runner():
         preprocessor = Preprocessor(seed=42)
         feats = preprocessor.make_feats(df, df_essay)
 
-        self.logger.info('Create features with limited timeframe.')
-        feats1 = preprocessor.make_feats_limited(df, df_essay, to_t=300000)
-        feats2 = preprocessor.make_feats_limited(df, df_essay, from_t=300000, to_t=900000)
-        feats3 = preprocessor.make_feats_limited(df, df_essay, from_t=900000, to_t=1500000)
-        feats4 = preprocessor.make_feats_limited(df, df_essay, from_t=1500000)
-
         feats = feats.merge(word_agg_df, on='id', how='left')
         feats = feats.merge(sent_agg_df, on='id', how='left')
         feats = feats.merge(paragraph_agg_df, on='id', how='left')
         feats = feats.merge(countvectorize_df, on='id', how='left')
-        feats = feats.merge(feats1, on='id', how='left')
-        feats = feats.merge(feats2, on='id', how='left')
-        feats = feats.merge(feats3, on='id', how='left')
-        feats = feats.merge(feats4, on='id', how='left')
+
+        if RCFG.add_split_feature:
+            self.logger.info('Create features with limited timeframe.')
+            feats1 = preprocessor.make_feats_limited(df, df_essay, to_t=300000)
+            feats2 = preprocessor.make_feats_limited(df, df_essay, from_t=300000, to_t=900000)
+            feats3 = preprocessor.make_feats_limited(df, df_essay, from_t=900000, to_t=1500000)
+            feats4 = preprocessor.make_feats_limited(df, df_essay, from_t=1500000)
+            feats = feats.merge(feats1, on='id', how='left')
+            feats = feats.merge(feats2, on='id', how='left')
+            feats = feats.merge(feats3, on='id', how='left')
+            feats = feats.merge(feats4, on='id', how='left')
+        
         feats = feats.fillna(-1000000)
 
         return feats
