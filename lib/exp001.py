@@ -215,9 +215,11 @@ class Preprocessor:
     
         return ret
     
+
     def get_count(self, df, colname, target_list, suffix=''):
         ret = self._get_count_dataframe(df, colname, target_list, suffix)
         return ret
+
 
     def match_punctuations(self, df, suffix=""):
         tmp_df = df.groupby('id').agg({'down_event': list}).reset_index()
@@ -288,6 +290,7 @@ class Preprocessor:
 
         return paused_df
     
+
     def get_first_move(self, df):
 
         df_first_input = df[df['activity'] == 'Input'].groupby('id')[['event_id', 'down_time']].agg(['min'])
@@ -308,6 +311,7 @@ class Preprocessor:
         df_first_input = df_first_input.merge(df_before_event, on='id', how='left').fillna(0)
 
         return df_first_input
+    
     
     def create_bursts(self, df, suffix=""):
 
