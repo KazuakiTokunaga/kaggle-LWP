@@ -726,7 +726,7 @@ class Runner():
         self.second_cvscore = {}
 
         for split_id in range(RCFG.split_cnt):
-            kf = model_selection.StratifiedKFold(n_splits=RCFG.n_splits, random_state= 1030 + split_id, shuffle=True)
+            kf = model_selection.StratifiedKFold(n_splits=RCFG.n_splits, random_state= 42+ split_id, shuffle=True)
             for fold, (_, valid_idx) in enumerate(kf.split(self.train_feats, self.train_feats['score'].astype(str))):
                 self.train_feats.loc[valid_idx, 'fold'] = fold
 
