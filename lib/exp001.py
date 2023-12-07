@@ -6,6 +6,7 @@ import itertools
 import pickle
 import re
 import time
+import polars as pl
 from random import choice, choices
 from tqdm import tqdm
 import numpy as np
@@ -335,6 +336,51 @@ class Preprocessor:
 
         return feats
     
+    def create_bursts(self, df, suffix=""):
+
+        df_pl = pl.from_pandas(df)
+        feats = df['id'].unique()
+
+        temp = df_pl.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
+        temp = temp.with_columns((abs(pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
+        temp = temp.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
+        temp = temp.with_columns(pl.col('time_diff')<2)
+        temp = temp.with_columns(pl.when(pl.col("time_diff") & pl.col("time_diff").is_last()).then(pl.count()).over(pl.col("time_diff").rle_id()).alias('P-bursts'))
+        temp = temp.drop_nulls()
+        temp = temp.group_by("id").agg(pl.mean('P-bursts').suffix(f'_mean{suffix}'), pl.std('P-bursts').suffix(f'_std{suffix}'), pl.count('P-bursts').suffix(f'_count{suffix}'),
+                                    pl.median('P-bursts').suffix(f'_median{suffix}'), pl.max('P-bursts').suffix(f'_max{suffix}'),
+                                    pl.first('P-bursts').suffix(f'_first{suffix}'), pl.last('P-bursts').suffix(f'_last{suffix}'))
+        feats = feats.join(temp, on='id', how='left') 
+
+        temp = df_pl.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
+        temp = temp.with_columns(pl.col('activity').is_in(['Remove/Cut']))
+        temp = temp.with_columns(pl.when(pl.col("activity") & pl.col("activity").is_last()).then(pl.count()).over(pl.col("activity").rle_id()).alias('R-bursts'))
+        temp = temp.drop_nulls()
+        temp = temp.group_by("id").agg(pl.mean('R-bursts').suffix(f'_mean{suffix}'), pl.std('R-bursts').suffix(f'_std{suffix}'), 
+                                    pl.median('R-bursts').suffix(f'_median{suffix}'), pl.max('R-bursts').suffix(f'_max{suffix}'),
+                                    pl.first('R-bursts').suffix(f'_first{suffix}'), pl.last('R-bursts').suffix(f'_last{suffix}'))
+        feats = feats.join(temp, on='id', how='left')
+
+        return feats.to_pandas()
+
+
+    def product_to_keys(self, df, essays, suffix=""):
+        essays['product_len'] = essays.essay.str.len()
+        tmp_df = df[df.activity.isin(['Input', 'Remove/Cut'])].groupby(['id']).agg({'activity': 'count'}).reset_index().rename(columns={'activity': 'keys_pressed'})
+        essays = essays.merge(tmp_df, on='id', how='left')
+        essays[f'product_to_keys{suffix}'] = essays['product_len'] / essays['keys_pressed']
+        return essays[['id', f'product_to_keys{suffix}']]
+
+
+    def get_keys_pressed_per_second(self, df, suffix=""):
+
+        temp_df = df[df['activity'].isin(['Input', 'Remove/Cut'])].groupby(['id']).agg(keys_pressed=('event_id', 'count')).reset_index()
+        temp_df_2 = df.groupby(['id']).agg(min_down_time=('down_time', 'min'), max_up_time=('up_time', 'max')).reset_index()
+        temp_df = temp_df.merge(temp_df_2, on='id', how='left')
+        temp_df[f'keys_per_second{suffix}'] = temp_df['keys_pressed'] / ((temp_df['max_up_time'] - temp_df['min_down_time']) / 1000)
+        return temp_df[['id', f'keys_per_second{suffix}']]
+    
+
     def create_gap_to_df(self, df, gaps):
 
         #'^[a-z]$' をothersに置き換える
@@ -377,7 +423,7 @@ class Preprocessor:
         return feats
 
 
-    def make_feats(self, df, gaps=[1, 3, 5, 10, 20, 50, 100]):
+    def make_feats(self, df, df_essay, gaps=[1, 3, 5, 10, 20, 50, 100]):
         
         feats = pd.DataFrame({'id': df['id'].unique().tolist()})
         df_target = df.copy()
@@ -427,12 +473,13 @@ class Preprocessor:
         for tmp_df in [activity_df, down_df, text_change_df, punctuations_df]:
             feats = pd.concat([feats, tmp_df], axis=1)
 
-        input_words_df = self.get_input_words(df_target)
-        paused_df = self.get_pause(df_target)
-        first_move_df = self.get_first_move(df_target)
-        over30_df = self.over_30min(df_target)
-        for tmp_df in [input_words_df, paused_df, first_move_df, over30_df]:
-            feats = feats.merge(tmp_df, on='id', how='left')
+        feats = feats.merge(self.get_input_words(df_target), on='id', how='left')
+        feats = feats.merge(self.get_pause(df_target), on='id', how='left')
+        feats = feats.merge(self.get_first_move(df_target), on='id', how='left')
+        feats = feats.merge(self.over_30min(df_target), on='id', how='left')
+        feats = feats.merge(self.create_bursts(df_target), on='id', how='left')
+        feats = feats.merge(self.product_to_keys(df_target, df_essay), on='id', how='left')
+        feats = feats.merge(self.get_keys_pressed_per_second(df_target), on='id', how='left')
 
         feats = feats.copy()
         feats['word_time_ratio'] = feats['word_count_max'] / feats['up_time_max']
@@ -443,7 +490,7 @@ class Preprocessor:
         return feats
     
 
-    def make_feats_limited(self, df, from_t=0, to_t=2400000, gaps=[1, 5, 10, 50]):
+    def make_feats_limited(self, df, df_essay, from_t=0, to_t=2400000, gaps=[1, 5, 10, 50]):
 
         feats = pd.DataFrame({'id': df['id'].unique().tolist()})
         suffix = f'_{from_t // 60000}_{to_t // 60000}_limited'
@@ -495,10 +542,13 @@ class Preprocessor:
         for tmp_df in [activity_df, down_df, text_change_df, punctuations_df]:
             feats = pd.concat([feats, tmp_df], axis=1)
 
-        input_words_df = self.get_input_words(df_target, suffix=suffix)
-        paused_df = self.get_pause(df_target, suffix=suffix)
-        for tmp_df in [input_words_df, paused_df]:
-            feats = feats.merge(tmp_df, on='id', how='left')
+        
+        feats = feats.merge(self.get_input_words(df_target, suffix=suffix), on='id', how='left')
+        feats = feats.merge(self.get_pause(df_target, suffix=suffix), on='id', how='left')
+        # feats = feats.merge(self.create_bursts(df_target, suffix=suffix), on='id', how='left')
+        feats = feats.merge(self.product_to_keys(df_target, df_essay, suffix=suffix), on='id', how='left')
+        feats = feats.merge(self.get_keys_pressed_per_second(df_target, suffix=suffix), on='id', how='left')
+        
 
         feats = feats.copy()
         feats[f'word_time_ratio{suffix}'] = feats[f'word_count_max{suffix}'] / feats[f'event_id_count{suffix}']
@@ -570,13 +620,13 @@ class Runner():
         # 400カラム
         self.logger.info('Create features with full timeframe.')
         preprocessor = Preprocessor(seed=42)
-        feats = preprocessor.make_feats(df)
+        feats = preprocessor.make_feats(df, df_essay)
 
         self.logger.info('Create features with limited timeframe.')
-        feats1 = preprocessor.make_feats_limited(df, to_t=300000)
-        feats2 = preprocessor.make_feats_limited(df, from_t=300000, to_t=900000)
-        feats3 = preprocessor.make_feats_limited(df, from_t=900000, to_t=1500000)
-        feats4 = preprocessor.make_feats_limited(df, from_t=1500000)
+        feats1 = preprocessor.make_feats_limited(df, df_essay, to_t=300000)
+        feats2 = preprocessor.make_feats_limited(df, df_essay, from_t=300000, to_t=900000)
+        feats3 = preprocessor.make_feats_limited(df, df_essay, from_t=900000, to_t=1500000)
+        feats4 = preprocessor.make_feats_limited(df, df_essay, from_t=1500000)
 
         feats = feats.merge(word_agg_df, on='id', how='left')
         feats = feats.merge(sent_agg_df, on='id', how='left')
