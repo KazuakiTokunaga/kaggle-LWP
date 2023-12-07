@@ -339,26 +339,26 @@ class Preprocessor:
     def create_bursts(self, df, suffix=""):
 
         df_pl = pl.from_pandas(df)
-        feats = df_pl['id'].unique()
+        feats = pl.DataFrame(df_pl['id'].unique())
 
         temp = df_pl.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
         temp = temp.with_columns((abs(pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
         temp = temp.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
         temp = temp.with_columns(pl.col('time_diff')<2)
-        temp = temp.with_columns(pl.when(pl.col("time_diff") & pl.col("time_diff").is_last()).then(pl.count()).over(pl.col("time_diff").rle_id()).alias('P-bursts'))
+        temp = temp.with_columns(pl.when(pl.col("time_diff") & pl.col("time_diff").is_last_distinct()).then(pl.count()).over(pl.col("time_diff").rle_id()).alias('P-bursts'))
         temp = temp.drop_nulls()
-        temp = temp.group_by("id").agg(pl.mean('P-bursts').suffix(f'_mean{suffix}'), pl.std('P-bursts').suffix(f'_std{suffix}'), pl.count('P-bursts').suffix(f'_count{suffix}'),
-                                    pl.median('P-bursts').suffix(f'_median{suffix}'), pl.max('P-bursts').suffix(f'_max{suffix}'),
-                                    pl.first('P-bursts').suffix(f'_first{suffix}'), pl.last('P-bursts').suffix(f'_last{suffix}'))
+        temp = temp.group_by("id").agg(pl.mean('P-bursts').name.suffix(f'_mean{suffix}'), pl.std('P-bursts').name.suffix(f'_std{suffix}'), pl.count('P-bursts').name.suffix(f'_count{suffix}'),
+                                    pl.median('P-bursts').name.suffix(f'_median{suffix}'), pl.max('P-bursts').name.suffix(f'_max{suffix}'),
+                                    pl.first('P-bursts').name.suffix(f'_first{suffix}'), pl.last('P-bursts').name.suffix(f'_last{suffix}'))
         feats = feats.join(temp, on='id', how='left') 
 
         temp = df_pl.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
         temp = temp.with_columns(pl.col('activity').is_in(['Remove/Cut']))
-        temp = temp.with_columns(pl.when(pl.col("activity") & pl.col("activity").is_last()).then(pl.count()).over(pl.col("activity").rle_id()).alias('R-bursts'))
+        temp = temp.with_columns(pl.when(pl.col("activity") & pl.col("activity").is_last_distinct()).then(pl.count()).over(pl.col("activity").rle_id()).alias('R-bursts'))
         temp = temp.drop_nulls()
-        temp = temp.group_by("id").agg(pl.mean('R-bursts').suffix(f'_mean{suffix}'), pl.std('R-bursts').suffix(f'_std{suffix}'), 
-                                    pl.median('R-bursts').suffix(f'_median{suffix}'), pl.max('R-bursts').suffix(f'_max{suffix}'),
-                                    pl.first('R-bursts').suffix(f'_first{suffix}'), pl.last('R-bursts').suffix(f'_last{suffix}'))
+        temp = temp.group_by("id").agg(pl.mean('R-bursts').name.suffix(f'_mean{suffix}'), pl.std('R-bursts').name.suffix(f'_std{suffix}'), 
+                                    pl.median('R-bursts').name.suffix(f'_median{suffix}'), pl.max('R-bursts').name.suffix(f'_max{suffix}'),
+                                    pl.first('R-bursts').name.suffix(f'_first{suffix}'), pl.last('R-bursts').name.suffix(f'_last{suffix}'))
         feats = feats.join(temp, on='id', how='left')
 
         return feats.to_pandas()
