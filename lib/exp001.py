@@ -604,7 +604,7 @@ class Runner():
         feats = feats.merge(paragraph_agg_df, on='id', how='left')
         feats = feats.merge(countvectorize_df, on='id', how='left')
 
-        if RCFG.add_split_feature:
+        if RCFG.add_split_features:
             self.logger.info('Create features with limited timeframe.')
             feats1 = preprocessor.make_feats_limited(df, df_essay, to_t=300000)
             feats2 = preprocessor.make_feats_limited(df, df_essay, from_t=300000, to_t=900000)
