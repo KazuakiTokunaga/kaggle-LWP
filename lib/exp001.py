@@ -64,7 +64,7 @@ class RCFG:
         'reg_lambda': 0.3, 
         'colsample_bytree': 0.8, 
         'subsample': 0.8,
-        'learning_rate': 0.1, 
+        'learning_rate': 0.005, 
         'num_leaves': 22, 
         'max_depth': 6, 
         'min_child_samples': 18
