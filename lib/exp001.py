@@ -56,12 +56,18 @@ class RCFG:
     threshold_random_features = 15
     add_split_features = False
     lgbm_params = {
-        'n_estimators': 1024,
-         'learning_rate': 0.005,
-         'metric': 'rmse',
-         'random_state': 42,
-         'force_col_wise': True,
-         'verbosity': 0
+        "objective": "regression",
+        "metric": "rmse",
+        'random_state': 42,
+        "n_estimators" : 12001,
+        "verbosity": -1,
+        'reg_lambda': 0.3, 
+        'colsample_bytree': 0.8, 
+        'subsample': 0.8,
+        'learning_rate': 0.02, 
+        'num_leaves': 22, 
+        'max_depth': 6, 
+        'min_child_samples': 18
     }
 
 def q03(x):
@@ -638,7 +644,7 @@ class Runner():
         oofscore = []
         target_col = ['score']
         self.train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id', 'fold']]
-        params = RCFG.lgbm_params
+        params = RCFG.lgbm_params.copy()
         last = False if mode == 'first' and RCFG.select_feature else True
 
         for seed_id in range(RCFG.cnt_seed): 
