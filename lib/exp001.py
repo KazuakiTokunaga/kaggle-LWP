@@ -56,12 +56,18 @@ class RCFG:
     threshold_random_features = 15
     add_split_features = False
     lgbm_params = {
-        'n_estimators': 3000,
-         'learning_rate': 0.005,
-         'metric': 'rmse',
-         'random_state': 42,
-         'force_col_wise': True,
-         'verbosity': 0
+        "objective": "regression",
+        "metric": "rmse",
+        'random_state': 42,
+        "n_estimators" : 12001,
+        "verbosity": -1,
+        'reg_lambda': 0.3, 
+        'colsample_bytree': 0.8, 
+        'subsample': 0.8,
+        'learning_rate': 0.02,
+        'num_leaves': 22, 
+        'max_depth': 6, 
+        'min_child_samples': 18
     }
 
 def q03(x):
