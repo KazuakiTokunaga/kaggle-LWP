@@ -341,7 +341,7 @@ class Runner():
     def _add_features(self,):
 
         train_feats   = dev_feats(pl.from_pandas(self.train_logs))
-        train_feats   = train_feats.collect().to_pandas()
+        train_feats   = train_feats.to_pandas()
     
         train_essays           = get_essay_df(self.train_logs)
         train_feats            = train_feats.merge(word_feats(train_essays), on='id', how='left')
