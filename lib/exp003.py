@@ -359,7 +359,7 @@ class Runner():
         
         if RCFG.preprocess_train:
             self.logger.info('Preprocess train data. Create features for train data.')
-            train_feats = self._add_features(self.train_logs, self.train_essays, mode='train')
+            train_feats = self._add_features(self.train_logs)
             self.train_feats = train_feats.merge(self.train_scores, on='id', how='left')
             self.train_feats.to_csv(f'{ENV.output_dir}train_feats.csv', index=False)
         else:
@@ -368,9 +368,8 @@ class Runner():
 
         if RCFG.predict:        
             self.logger.info('Preprocess test data. Get essays of test data.')
-            test_essays = getEssays(self.test_logs)
             self.logger.info('Create features for test data.')
-            self.test_feats = self._add_features(self.test_logs, test_essays, mode='predict')
+            self.test_feats = self._add_features(self.test_logs)
 
     def _train_fold_seed(self, mode='first', split_id=0):
 
