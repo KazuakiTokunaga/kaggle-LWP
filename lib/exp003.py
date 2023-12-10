@@ -96,6 +96,37 @@ def count_by_values(df, colname, values):
         fts  = fts.join(tmp_df, on='id', how='left') 
     return fts
 
+def get_count_dataframe(df, colname, target_list, suffix):
+    """
+    ログのcolnameのカウントを取得してカラムにする
+    カウントを取得するのはtarget_listに含まれるもののみ
+    """
+
+    tmp_df = df.groupby('id').agg({colname: list}).reset_index()
+    ret = list()
+    for li in tqdm(tmp_df[colname].values):
+        items = list(Counter(li).items())
+        di = dict()
+        for k in target_list:
+            di[k] = 0
+        for item in items:
+            k, v = item[0], item[1]
+            if k in di:
+                di[k] = v
+        ret.append(di)
+    ret = pd.DataFrame(ret)
+
+    cols = []
+    for c in ret.columns:
+        if c in special_char_to_text.keys():
+            t = special_char_to_text[c]
+            cols.append(f'{colname}_{t}_count{suffix}')
+        else:
+            cols.append(f'{colname}_{c}_count{suffix}')
+    ret.columns = cols
+
+    return ret
+
 def get_first_move(df):
 
     df_first_input = df[df['activity'] == 'Input'].groupby('id')[['event_id', 'down_time']].agg(['min'])
@@ -103,7 +134,7 @@ def get_first_move(df):
 
     df_merged = df.merge(df_first_input, on='id', how='left')
     df_before_event_base = df_merged[df_merged['event_id'] < df_merged['first_input_event_id']]
-    df_before_event = self.get_count(
+    df_before_event = get_count_dataframe(
         df = df_before_event_base, 
         colname = 'down_event', 
         target_list = ['Leftclick', 'Shift'], 
