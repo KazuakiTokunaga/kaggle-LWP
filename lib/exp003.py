@@ -96,6 +96,26 @@ def count_by_values(df, colname, values):
         fts  = fts.join(tmp_df, on='id', how='left') 
     return fts
 
+def get_first_move(df):
+
+    df_first_input = df[df['activity'] == 'Input'].groupby('id')[['event_id', 'down_time']].agg(['min'])
+    df_first_input.columns = ['first_input_event_id', 'first_input_down_time']
+
+    df_merged = df.merge(df_first_input, on='id', how='left')
+    df_before_event_base = df_merged[df_merged['event_id'] < df_merged['first_input_event_id']]
+    df_before_event = self.get_count(
+        df = df_before_event_base, 
+        colname = 'down_event', 
+        target_list = ['Leftclick', 'Shift'], 
+        suffix='_before_first_input'
+    )
+    df_before_event.index = df_before_event_base['id'].drop_duplicates().values
+    df_before_event.index = df_before_event.index.rename('id')
+
+    df_first_input = df_first_input.merge(df_before_event, on='id', how='left').fillna(0)
+
+    return df_first_input
+
 
 def dev_feats(df):
     
@@ -104,7 +124,6 @@ def dev_feats(df):
     feats = count_by_values(df, 'activity', activities)
     feats = feats.join(count_by_values(df, 'text_change', text_changes), on='id', how='left') 
     feats = feats.join(count_by_values(df, 'down_event', events), on='id', how='left') 
-    # feats = feats.join(count_by_values(df, 'up_event', events), on='id', how='left') 
 
     print("< Input words stats features >")
 
@@ -359,6 +378,7 @@ class Runner():
         train_feats            = train_feats.merge(parag_feats(train_essays), on='id', how='left')
         train_feats            = train_feats.merge(get_keys_pressed_per_second(self.train_logs), on='id', how='left')
         train_feats            = train_feats.merge(product_to_keys(self.train_logs, train_essays), on='id', how='left')
+        train_feats            = train_feats.merge(get_first_move(self.train_logs), on='id', how='left')
 
         return train_feats
 
