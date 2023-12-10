@@ -169,7 +169,9 @@ def dev_feats(df):
                                    pauses_1_sec = pl.col('time_diff').filter((pl.col('time_diff') > 1) & (pl.col('time_diff') < 1.5)).count(),
                                    pauses_1_half_sec = pl.col('time_diff').filter((pl.col('time_diff') > 1.5) & (pl.col('time_diff') < 2)).count(),
                                    pauses_2_sec = pl.col('time_diff').filter((pl.col('time_diff') > 2) & (pl.col('time_diff') < 3)).count(),
-                                   pauses_3_sec = pl.col('time_diff').filter(pl.col('time_diff') > 3).count(),)
+                                   pauses_3_sec = pl.col('time_diff').filter(pl.col('time_diff') > 3).count(),
+                                   pauses_10_sec = pl.col('time_diff').filter(pl.col('time_diff') > 10).count(),
+                                   pauses_30_sec = pl.col('time_diff').filter(pl.col('time_diff') > 10).count(),)
     feats = feats.join(temp, on='id', how='left') 
     
     print("< P-bursts features >")
