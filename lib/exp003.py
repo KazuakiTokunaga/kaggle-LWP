@@ -77,12 +77,22 @@ num_cols = ['down_time', 'up_time', 'action_time', 'cursor_position', 'word_coun
 activities = ['Input', 'Remove/Cut', 'Nonproduction', 'Replace', 'Paste']
 events = ['q', 'Space', 'Backspace', 'Shift', 'ArrowRight', 'Leftclick', 'ArrowLeft', '.', ',', 'ArrowDown', 'ArrowUp', 'Enter', 'CapsLock', "'", 'Delete', 'Unidentified']
 text_changes = ['q', ' ', '.', ',', '\n', "'", '"', '-', '?', ';', '=', '/', '\\', ':']
+special_char_to_text = {
+    ' ': 'space', '\n': 'enter', '.': 'period', ',': 'comma', "'": 'apostrophe', '"': 'quotation',
+    '-': 'hyphen', ';': 'semicolon', ':': 'colon', '?': 'question', '!': 'exclamation', '<': 'less_than',
+    '>': 'greater_than', '/': 'slash', '\\': 'backslash', '@': 'at', '#': 'hash', '$': 'dollar',
+    '%': 'percent', '^': 'caret', '&': 'ampersand', '*': 'asterisk', '(': 'left_parenthesis',
+    ')': 'right_parenthesis', '_': 'underscore',
+}
 
 
 def count_by_values(df, colname, values):
     fts = df.select(pl.col('id').unique(maintain_order=True))
-    for i, value in enumerate(values):
-        tmp_df = df.group_by('id').agg(pl.col(colname).is_in([value]).sum().alias(f'{colname}_{i}_cnt'))
+    for value in values:
+        name = value
+        if value in special_char_to_text:
+            name = special_char_to_text[value]
+        tmp_df = df.group_by('id').agg(pl.col(colname).is_in([value]).sum().alias(f'{colname}_{name}_cnt'))
         fts  = fts.join(tmp_df, on='id', how='left') 
     return fts
 
