@@ -75,7 +75,7 @@ class RCFG:
 
 num_cols = ['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']
 activities = ['Input', 'Remove/Cut', 'Nonproduction', 'Replace', 'Paste']
-events = ['q', 'Space', 'Backspace', 'Shift', 'ArrowRight', 'Leftclick', 'ArrowLeft', '.', ',', 'ArrowDown', 'ArrowUp', 'Enter', 'CapsLock', "'", 'Delete', 'Unidentified']
+events = ['q', 'Space', 'Backspace', 'Shift', 'ArrowRight', 'Leftclick', 'ArrowLeft', '.', ',', 'ArrowDown', 'ArrowUp', 'Enter', 'CapsLock', "'", 'Delete']
 text_changes = ['q', ' ', '.', ',', '\n', "'", '"', '-', '?', ';', '=', '/', '\\', ':']
 special_char_to_text = {
     ' ': 'space', '\n': 'enter', '.': 'period', ',': 'comma', "'": 'apostrophe', '"': 'quotation',
@@ -104,7 +104,7 @@ def dev_feats(df):
     feats = count_by_values(df, 'activity', activities)
     feats = feats.join(count_by_values(df, 'text_change', text_changes), on='id', how='left') 
     feats = feats.join(count_by_values(df, 'down_event', events), on='id', how='left') 
-    feats = feats.join(count_by_values(df, 'up_event', events), on='id', how='left') 
+    # feats = feats.join(count_by_values(df, 'up_event', events), on='id', how='left') 
 
     print("< Input words stats features >")
 
