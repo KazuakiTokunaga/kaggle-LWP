@@ -189,7 +189,7 @@ def dev_feats(df):
     print("< Idle time features >")
 
     temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
-    temp = temp.with_columns((pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff')
+    temp = temp.with_columns(((pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
     temp = temp.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
     temp = temp.group_by("id").agg(inter_key_largest_lantency = pl.max('time_diff'),
                                    inter_key_median_lantency = pl.median('time_diff'),
