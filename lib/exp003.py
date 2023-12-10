@@ -410,7 +410,7 @@ class Runner():
         train_feats            = train_feats.merge(parag_feats(train_essays), on='id', how='left')
         train_feats            = train_feats.merge(get_keys_pressed_per_second(self.train_logs), on='id', how='left')
         train_feats            = train_feats.merge(product_to_keys(self.train_logs, train_essays), on='id', how='left')
-        train_feats            = train_feats.merge(get_first_move(self.train_logs), on='id', how='left')
+        # train_feats            = train_feats.merge(get_first_move(self.train_logs), on='id', how='left')
 
         return train_feats
 
