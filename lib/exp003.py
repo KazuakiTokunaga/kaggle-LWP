@@ -347,19 +347,19 @@ class Runner():
             target_id = self.train_logs['id'].unique()[:RCFG.debug_size]
             self.train_logs = self.train_logs[self.train_logs['id'].isin(target_id)]
     
-    def _add_features(self,):
+    def _add_features(self, df):
 
-        train_feats   = dev_feats(pl.from_pandas(self.train_logs))
-        train_feats   = train_feats.to_pandas()
+        feats   = dev_feats(pl.from_pandas(df))
+        feats   = feats.to_pandas()
     
-        train_essays           = get_essay_df(self.train_logs)
-        train_feats            = train_feats.merge(word_feats(train_essays), on='id', how='left')
-        train_feats            = train_feats.merge(sent_feats(train_essays), on='id', how='left')
-        train_feats            = train_feats.merge(parag_feats(train_essays), on='id', how='left')
-        train_feats            = train_feats.merge(get_keys_pressed_per_second(self.train_logs), on='id', how='left')
-        train_feats            = train_feats.merge(product_to_keys(self.train_logs, train_essays), on='id', how='left')
+        essays           = get_essay_df(df)
+        feats            = feats.merge(word_feats(essays), on='id', how='left')
+        feats            = feats.merge(sent_feats(essays), on='id', how='left')
+        feats            = feats.merge(parag_feats(essays), on='id', how='left')
+        feats            = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
+        feats            = feats.merge(product_to_keys(df, essays), on='id', how='left')
 
-        return train_feats
+        return feats
 
 
     def preprocess(self,):
@@ -368,7 +368,7 @@ class Runner():
         
         if RCFG.preprocess_train:
             logger.info('Preprocess train data. Create features for train data.')
-            train_feats = self._add_features()
+            train_feats = self._add_features(self.train_logs)
             self.train_feats = train_feats.merge(self.train_scores, on='id', how='left')
             self.train_feats.to_csv(f'{ENV.output_dir}train_feats.csv', index=False)
         else:
@@ -378,7 +378,7 @@ class Runner():
         if RCFG.predict:        
             logger.info('Preprocess test data. Get essays of test data.')
             logger.info('Create features for test data.')
-            self.test_feats = self._add_features()
+            self.test_feats = self._add_features(self.test_logs)
 
     def _train_fold_seed(self, mode='first', split_id=0):
 
