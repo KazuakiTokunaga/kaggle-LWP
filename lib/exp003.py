@@ -29,6 +29,7 @@ from utils.utils import class_vars_to_dict
 from utils.utils import add_random_feature
 from utils.essay import getEssays
 
+logger = Logger()
 
 class ENV:
     input_dir = "/kaggle/input/"
@@ -86,66 +87,15 @@ special_char_to_text = {
 }
 
 
-def count_by_values(df, colname, values):
+def count_by_values(df, colname, values, suffix=""):
     fts = df.select(pl.col('id').unique(maintain_order=True))
     for value in values:
         name = value
         if value in special_char_to_text:
             name = special_char_to_text[value]
-        tmp_df = df.group_by('id').agg(pl.col(colname).is_in([value]).sum().alias(f'{colname}_{name}_cnt'))
+        tmp_df = df.group_by('id').agg(pl.col(colname).is_in([value]).sum().alias(f'{colname}_{name}_cnt{suffix}'))
         fts  = fts.join(tmp_df, on='id', how='left') 
     return fts
-
-def get_count_dataframe(df, colname, target_list, suffix):
-    """
-    ログのcolnameのカウントを取得してカラムにする
-    カウントを取得するのはtarget_listに含まれるもののみ
-    """
-
-    tmp_df = df.groupby('id').agg({colname: list}).reset_index()
-    ret = list()
-    for li in tqdm(tmp_df[colname].values):
-        items = list(Counter(li).items())
-        di = dict()
-        for k in target_list:
-            di[k] = 0
-        for item in items:
-            k, v = item[0], item[1]
-            if k in di:
-                di[k] = v
-        ret.append(di)
-    ret = pd.DataFrame(ret)
-
-    cols = []
-    for c in ret.columns:
-        if c in special_char_to_text.keys():
-            t = special_char_to_text[c]
-            cols.append(f'{colname}_{t}_count{suffix}')
-        else:
-            cols.append(f'{colname}_{c}_count{suffix}')
-    ret.columns = cols
-
-    return ret
-
-def get_first_move(df):
-
-    df_first_input = df[df['activity'] == 'Input'].groupby('id')[['event_id', 'down_time']].agg(['min'])
-    df_first_input.columns = ['first_input_event_id', 'first_input_down_time']
-
-    df_merged = df.merge(df_first_input, on='id', how='left')
-    df_before_event_base = df_merged[df_merged['event_id'] < df_merged['first_input_event_id']]
-    df_before_event = get_count_dataframe(
-        df = df_before_event_base, 
-        colname = 'down_event', 
-        target_list = ['Leftclick', 'Shift'], 
-        suffix='_before_first_input'
-    )
-    df_before_event.index = df_before_event_base['id'].drop_duplicates().values
-    df_before_event.index = df_before_event.index.rename('id')
-
-    df_first_input = df_first_input.merge(df_before_event, on='id', how='left').fillna(0)
-
-    return df_first_input
 
 
 def dev_feats(df):
@@ -370,12 +320,10 @@ class Runner():
         self,
     ):
         
-        self.logger = Logger()
         tqdm.pandas()
-        
-        self.logger.info(f'Commit hash: {ENV.commit_hash}')
+        logger.info(f'Commit hash: {ENV.commit_hash}')
         if ENV.save_to_sheet:
-            self.logger.info('Initializing Google Sheet.')
+            logger.info('Initializing Google Sheet.')
             self.sheet = WriteSheet(
                 sheet_json_key = ENV.sheet_json_key,
                 sheet_key = ENV.sheet_key
@@ -395,7 +343,7 @@ class Runner():
         self.train_essays = pd.read_csv(f'{ENV.input_dir}/writing-quality-challenge-constructed-essays/train_essays_fast.csv')
 
         if RCFG.debug:
-            self.logger.info(f'Debug mode. Get only first {RCFG.debug_size} ids.')
+            logger.info(f'Debug mode. Get only first {RCFG.debug_size} ids.')
             target_id = self.train_logs['id'].unique()[:RCFG.debug_size]
             self.train_logs = self.train_logs[self.train_logs['id'].isin(target_id)]
     
@@ -417,20 +365,20 @@ class Runner():
 
     def preprocess(self,):
 
-        self.logger.info('Start preprocessing.')
+        logger.info('Start preprocessing.')
         
         if RCFG.preprocess_train:
-            self.logger.info('Preprocess train data. Create features for train data.')
+            logger.info('Preprocess train data. Create features for train data.')
             train_feats = self._add_features()
             self.train_feats = train_feats.merge(self.train_scores, on='id', how='left')
             self.train_feats.to_csv(f'{ENV.output_dir}train_feats.csv', index=False)
         else:
-            self.logger.info(f'Load train data from {ENV.feature_dir}train_feats.csv.')
+            logger.info(f'Load train data from {ENV.feature_dir}train_feats.csv.')
             self.train_feats = pd.read_csv(f'{ENV.feature_dir}train_feats.csv')
 
         if RCFG.predict:        
-            self.logger.info('Preprocess test data. Get essays of test data.')
-            self.logger.info('Create features for test data.')
+            logger.info('Preprocess test data. Get essays of test data.')
+            logger.info('Create features for test data.')
             self.test_feats = self._add_features()
 
     def _train_fold_seed(self, mode='first', split_id=0):
@@ -442,12 +390,12 @@ class Runner():
         last = False if mode == 'first' and RCFG.select_feature else True
 
         for seed_id in range(RCFG.cnt_seed): 
-            self.logger.info(f'Start training for seed_id {seed_id}.')            
+            logger.info(f'Start training for seed_id {seed_id}.')            
             oof_valid_preds = np.zeros(self.train_feats.shape[0])
 
             for fold in range(RCFG.n_splits):
                 seed = RCFG.base_seed + split_id * (RCFG.n_splits * RCFG.cnt_seed) + seed_id * RCFG.n_splits + fold
-                self.logger.info(f'Start training with model seed {seed} for seed_id {seed_id} fold {fold}.')
+                logger.info(f'Start training with model seed {seed} for seed_id {seed_id} fold {fold}.')
 
                 if mode == 'second':
                     cond = (self.feature_importance_df['split_id'] == split_id) & (self.feature_importance_df['fold'] == fold)
@@ -460,9 +408,9 @@ class Runner():
                     else:
                         self.train_cols = feature_df.head(RCFG.use_feature_rank)['feature'].tolist()
                     if seed_id == 0:
-                        self.logger.info(f'self.train_cols: {len(self.train_cols)}')
+                        logger.info(f'self.train_cols: {len(self.train_cols)}')
 
-                self.logger.info(f'Start training for fold {fold}.')
+                logger.info(f'Start training for fold {fold}.')
                 train_idx = self.train_feats[self.train_feats['fold'] != fold].index
                 valid_idx = self.train_feats[self.train_feats['fold'] == fold].index
                 
@@ -487,14 +435,14 @@ class Runner():
                 self.models_dict[f'{split_id}_{seed_id}_{fold}'] = model
 
                 rmse = np.round(metrics.mean_squared_error(y_valid, valid_predict, squared=False), 6)
-                self.logger.info(f'Seed_id {seed_id} fold {fold} rmse: {rmse}, best iteration: {model.best_iteration_}')
+                logger.info(f'Seed_id {seed_id} fold {fold} rmse: {rmse}, best iteration: {model.best_iteration_}')
 
             oof_score = np.round(metrics.mean_squared_error(self.train_feats[target_col], oof_valid_preds, squared=False), 6)
-            self.logger.info(f'oof score for seed_id {seed_id}: {oof_score}')
+            logger.info(f'oof score for seed_id {seed_id}: {oof_score}')
             oofscore.append(oof_score)
 
         cvscore = np.round(np.mean(oofscore), 6)
-        self.logger.info(f'CV score: {cvscore}')
+        logger.info(f'CV score: {cvscore}')
         if mode == 'first':
             self.first_oofscores[split_id] = oofscore
             self.first_cvscore[split_id] = cvscore
@@ -505,16 +453,16 @@ class Runner():
     def train(self,):
 
         if RCFG.debug:
-            self.logger.info('Debug mode. Decrease training time.')
+            logger.info('Debug mode. Decrease training time.')
             RCFG.split_cnt = 2
             RCFG.cnt_seed = 2
             RCFG.n_splits = 2
 
         if RCFG.use_random_features:
-            self.logger.info('Add random features.')
+            logger.info('Add random features.')
             self.train_feats = add_random_feature(self.train_feats)
 
-        self.logger.info(f'Start training. train_feats shape: {self.train_feats.shape}')
+        logger.info(f'Start training. train_feats shape: {self.train_feats.shape}')
         self.feature_importance_df = pd.DataFrame()
         self.models_dict = {}
         self.first_oofscores = {}
@@ -527,12 +475,12 @@ class Runner():
             for fold, (_, valid_idx) in enumerate(kf.split(self.train_feats, self.train_feats['score'].astype(str))):
                 self.train_feats.loc[valid_idx, 'fold'] = fold
 
-            self.logger.info('--------------------------------------------------')
-            self.logger.info(f'Train LightGBM with split seed: {1030+split_id}.') 
-            self.logger.info('--------------------------------------------------')   
+            logger.info('--------------------------------------------------')
+            logger.info(f'Train LightGBM with split seed: {1030+split_id}.') 
+            logger.info('--------------------------------------------------')   
             self._train_fold_seed(mode='first', split_id=split_id)
 
-            self.logger.info('Calculate feature importance.')
+            logger.info('Calculate feature importance.')
             for fold in range(RCFG.n_splits):
                 for seed_id in range(RCFG.cnt_seed):
                     model = self.models_dict[f'{split_id}_{seed_id}_{fold}']
@@ -546,23 +494,23 @@ class Runner():
                     self.feature_importance_df = pd.concat([self.feature_importance_df, fold_importance_df], axis=0)
 
             if RCFG.select_feature:
-                self.logger.info('--------- Retrain LightGBM with selected features. ---------')
+                logger.info('--------- Retrain LightGBM with selected features. ---------')
                 self._train_fold_seed(mode='second', split_id=split_id)
 
         if RCFG.select_feature:
             self.final_score = np.mean(list(self.second_cvscore.values()))
         else:
             self.final_score = np.mean(list(self.first_cvscore.values()))
-        self.logger.info(f'Final CV Score: {self.final_score}')
+        logger.info(f'Final CV Score: {self.final_score}')
 
         self.feature_importance_df.to_csv(f'{ENV.output_dir}feature_importance.csv', index=False)
         with open(f'{ENV.output_dir}models_dict.pickle', 'wb') as f:
-            self.logger.info(f'save models_dict to {ENV.output_dir}models_dict.pickle')
+            logger.info(f'save models_dict to {ENV.output_dir}models_dict.pickle')
             pickle.dump(self.models_dict, f)
     
 
     def write_sheet(self, ):
-        self.logger.info('Write scores to google sheet.')
+        logger.info('Write scores to google sheet.')
         nowstr_jst = str(datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=9))).strftime('%Y-%m-%d %H:%M:%S'))
 
         data = [
@@ -581,11 +529,11 @@ class Runner():
     def predict(self, ):
 
         if RCFG.load_model:
-            self.logger.info('Load LightGBM model.')
+            logger.info('Load LightGBM model.')
             with open(f'{ENV.model_dir}models_dict.pickle', 'rb') as f:
                 self.models_dict = pickle.load(f)
         
-        self.logger.info('Start prediction.')
+        logger.info('Start prediction.')
         test_predict_list = []
         for split_id in range(RCFG.split_cnt):
             for seed_id in range(RCFG.cnt_seed): 
@@ -596,7 +544,7 @@ class Runner():
                     test_predict = model.predict(X_test)
                     test_predict_list.append(test_predict)
         
-        self.logger.info('Save submission.csv')
+        logger.info('Save submission.csv')
         self.test_feats['score'] = np.mean(test_predict_list, axis=0)
         self.test_feats[['id', 'score']].to_csv("submission.csv", index=False)
 
