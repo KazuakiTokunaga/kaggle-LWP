@@ -457,7 +457,7 @@ class Runner():
             RCFG.cnt_seed = 2
             RCFG.n_splits = 2
 
-        if RCFG.use_random_features:
+        if RCFG.use_random_features and RCFG.select_feature:
             logger.info('Add random features.')
             self.train_feats = add_random_feature(self.train_feats)
 
