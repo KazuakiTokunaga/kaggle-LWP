@@ -100,13 +100,13 @@ def count_by_values(df, colname, values, suffix=""):
 
 def dev_feats(df):
     
-    print("< Count by values features >")
+    logger.info("< Count by values features >")
     
     feats = count_by_values(df, 'activity', activities)
     feats = feats.join(count_by_values(df, 'text_change', text_changes), on='id', how='left') 
     feats = feats.join(count_by_values(df, 'down_event', events), on='id', how='left') 
 
-    print("< Input words stats features >")
+    logger.info("< Input words stats features >")
 
     temp = df.filter((~pl.col('text_change').str.contains('=>')) & (pl.col('text_change') != 'NoChange'))
     temp = temp.group_by('id').agg(pl.col('text_change').str.concat('').str.extract_all(r'q+'))
@@ -121,7 +121,7 @@ def dev_feats(df):
 
 
     
-    print("< Numerical columns features >")
+    logger.info("< Numerical columns features >")
 
     temp = df.group_by("id").agg(pl.sum('action_time').suffix('_sum'), pl.mean(num_cols).suffix('_mean'), pl.std(num_cols).suffix('_std'),
                                  pl.median(num_cols).suffix('_median'), pl.min(num_cols).suffix('_min'), pl.max(num_cols).suffix('_max'),
@@ -129,14 +129,14 @@ def dev_feats(df):
     feats = feats.join(temp, on='id', how='left') 
 
 
-    print("< Categorical columns features >")
+    logger.info("< Categorical columns features >")
     
     temp  = df.group_by("id").agg(pl.n_unique(['activity', 'down_event', 'up_event', 'text_change']))
     feats = feats.join(temp, on='id', how='left') 
 
 
     
-    print("< Idle time features >")
+    logger.info("< Idle time features >")
 
     temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
     temp = temp.with_columns(((pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
@@ -154,7 +154,7 @@ def dev_feats(df):
                                    pauses_3_sec = pl.col('time_diff').filter(pl.col('time_diff') > 3).count())
     feats = feats.join(temp, on='id', how='left') 
     
-    print("< P-bursts features >")
+    logger.info("< P-bursts features >")
 
     temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
     temp = temp.with_columns((abs(pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
@@ -168,7 +168,7 @@ def dev_feats(df):
     feats = feats.join(temp, on='id', how='left') 
 
 
-    print("< R-bursts features >")
+    logger.info("< R-bursts features >")
 
     temp = df.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
     temp = temp.with_columns(pl.col('activity').is_in(['Remove/Cut']))
@@ -358,7 +358,6 @@ class Runner():
         train_feats            = train_feats.merge(parag_feats(train_essays), on='id', how='left')
         train_feats            = train_feats.merge(get_keys_pressed_per_second(self.train_logs), on='id', how='left')
         train_feats            = train_feats.merge(product_to_keys(self.train_logs, train_essays), on='id', how='left')
-        # train_feats            = train_feats.merge(get_first_move(self.train_logs), on='id', how='left')
 
         return train_feats
 
@@ -476,7 +475,7 @@ class Runner():
                 self.train_feats.loc[valid_idx, 'fold'] = fold
 
             logger.info('--------------------------------------------------')
-            logger.info(f'Train LightGBM with split seed: {1030+split_id}.') 
+            logger.info(f'Train LightGBM with split seed: {42+split_id}.') 
             logger.info('--------------------------------------------------')   
             self._train_fold_seed(mode='first', split_id=split_id)
 
