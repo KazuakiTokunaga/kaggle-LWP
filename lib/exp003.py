@@ -94,7 +94,7 @@ def get_countvectorizer_features(df, ngram=(1,3), thre=0.03):
     df_train_index = pd.Index(df['id'].unique(), name = 'id')
     feature_names = count_vectorizer.get_feature_names_out()
 
-    df_result = pd.DataFrame(data=X_tokenizer_train, index = df_train_index, columns=feature_names)[
+    df_result = pd.DataFrame(data=X_tokenizer_train, index = df_train_index, columns=feature_names)[[
         "qq qqqqqqq",
         "qq qqq qqqq",
         "qqqqqq qqqq qq",
@@ -102,7 +102,7 @@ def get_countvectorizer_features(df, ngram=(1,3), thre=0.03):
         "qqqqqq qq",
         "qqq qqqqqqqq qqq",
         "qqq qqqq qqqqq"
-    ]
+    ]]
     df_result.columns = [f"{c}_ngram" for c in df_result.columns]
     return df_result
     
