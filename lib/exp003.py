@@ -133,13 +133,14 @@ def dev_feats(df):
     logger.info("Idle time features")
 
     temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
-    temp = temp.with_columns((abs(pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
+    temp = temp.with_columns(((pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
     temp = temp.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
     temp = temp.group_by("id").agg(inter_key_largest_lantency = pl.max('time_diff'),
                                    inter_key_median_lantency = pl.median('time_diff'),
                                    mean_pause_time = pl.mean('time_diff'),
                                    std_pause_time = pl.std('time_diff'),
                                    total_pause_time = pl.sum('time_diff'),
+                                   pauses_minus_sec = pl.col('time_diff').filter(pl.col('time_diff') < 0).count(),                                   
                                    pauses_half_sec = pl.col('time_diff').filter((pl.col('time_diff') > 0.5) & (pl.col('time_diff') < 1)).count(),
                                    pauses_1_sec = pl.col('time_diff').filter((pl.col('time_diff') > 1) & (pl.col('time_diff') < 1.5)).count(),
                                    pauses_1_half_sec = pl.col('time_diff').filter((pl.col('time_diff') > 1.5) & (pl.col('time_diff') < 2)).count(),
