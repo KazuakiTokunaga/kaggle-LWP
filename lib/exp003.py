@@ -86,6 +86,27 @@ special_char_to_text = {
     ')': 'right_parenthesis', '_': 'underscore',
 }
 
+def get_countvectorizer_features(df, ngram=(1,3), thre=0.03):
+
+    count_vectorizer = CountVectorizer(ngram_range=ngram, min_df=thre)
+    # count_vectorizer = TfidfVectorizer(ngram_range=ngram, min_df=thre)
+    X_tokenizer_train = count_vectorizer.fit_transform(df['essay']).todense()
+    df_train_index = pd.Index(df['id'].unique(), name = 'id')
+    feature_names = count_vectorizer.get_feature_names_out()
+
+    df_result = pd.DataFrame(data=X_tokenizer_train, index = df_train_index, columns=feature_names)[
+        "qq qqqqqqq",
+        "qq qqq qqqq",
+        "qqqqqq qqqq qq",
+        "qqqqqqq qqqqqq",
+        "qqqqqq qq",
+        "qqq qqqqqqqq qqq",
+        "qqq qqqq qqqqq"
+    ]
+    df_result.columns = [f"{c}_ngram" for c in df_result.columns]
+    return df_result
+    
+
 
 def count_by_values(df, colname, values, suffix=""):
     fts = df.select(pl.col('id').unique(maintain_order=True))
@@ -163,17 +184,17 @@ def dev_feats(df):
     temp = temp.with_columns(pl.when(pl.col("time_diff") & pl.col("time_diff").is_last_distinct()).then(pl.count()).over(pl.col("time_diff").rle_id()).alias('P-bursts'))
     temp = temp.drop_nulls()
     temp = temp.group_by("id").agg(
-        pl.mean('P-bursts').suffix('_mean'), 
-        pl.std('P-bursts').suffix('_std'),
-        pl.count('P-bursts').suffix('_count'),
-        pl.median('P-bursts').suffix('_median'), 
-        pl.max('P-bursts').suffix('_max'),
-        pl.first('P-bursts').suffix('_first'), 
-        pl.last('P-bursts').suffix('_last'),
-        pl.col('P-bursts').filter(pl.col('P-bursts') > 10).count().suffix('_count_gt_10'),
-        pl.col('P-bursts').filter(pl.col('P-bursts') > 30).count().suffix('_count_gt_30'),
-        pl.col('P-bursts').filter(pl.col('P-bursts') > 90).count().suffix('_count_gt_90'),
-        pl.col('P-bursts').filter(pl.col('P-bursts') > 150).count().suffix('_count_gt_150'),
+        pl.mean('P-bursts').name.suffix('_mean'), 
+        pl.std('P-bursts').name.suffix('_std'),
+        pl.count('P-bursts').name.suffix('_count'),
+        pl.median('P-bursts').name.suffix('_median'), 
+        pl.max('P-bursts').name.suffix('_max'),
+        pl.first('P-bursts').name.suffix('_first'), 
+        pl.last('P-bursts').name.suffix('_last'),
+        pl.col('P-bursts').filter(pl.col('P-bursts') > 10).count().name.suffix('_count_gt_10'),
+        pl.col('P-bursts').filter(pl.col('P-bursts') > 30).count().name.suffix('_count_gt_30'),
+        pl.col('P-bursts').filter(pl.col('P-bursts') > 90).count().name.suffix('_count_gt_90'),
+        pl.col('P-bursts').filter(pl.col('P-bursts') > 150).count().name.suffix('_count_gt_150'),
     )
     feats = feats.join(temp, on='id', how='left') 
 
@@ -185,14 +206,14 @@ def dev_feats(df):
     temp = temp.with_columns(pl.when(pl.col("activity") & pl.col("activity").is_last_distinct()).then(pl.count()).over(pl.col("activity").rle_id()).alias('R-bursts'))
     temp = temp.drop_nulls()
     temp = temp.group_by("id").agg(
-        pl.mean('R-bursts').suffix('_mean'), 
-        pl.std('R-bursts').suffix('_std'), 
-        pl.median('R-bursts').suffix('_median'), 
-        pl.max('R-bursts').suffix('_max'),
-        pl.first('R-bursts').suffix('_first'), 
-        pl.last('R-bursts').suffix('_last'),
-        pl.col('R-burst').filter(pl.col('R-bursts') > 1).count().suffix('_count_gt_1'),
-        pl.col('R-burst').filter(pl.col('R-bursts') > 5).count().suffix('_count_gt_5'),
+        pl.mean('R-bursts').name.suffix('_mean'), 
+        pl.std('R-bursts').name.suffix('_std'), 
+        pl.median('R-bursts').name.suffix('_median'), 
+        pl.max('R-bursts').name.suffix('_max'),
+        pl.first('R-bursts').name.suffix('_first'), 
+        pl.last('R-bursts').name.suffix('_last'),
+        pl.col('R-bursts').filter(pl.col('R-bursts') > 1).count().name.suffix('_count_gt_1'),
+        pl.col('R-bursts').filter(pl.col('R-bursts') > 5).count().name.suffix('_count_gt_5'),
     )
     feats = feats.join(temp, on='id', how='left')
     
