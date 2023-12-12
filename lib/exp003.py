@@ -420,6 +420,7 @@ class Runner():
         feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
         feats = feats.merge(product_to_keys(df, essays), on='id', how='left')
         feats = feats.merge(create_shortcuts(df), on='id', how='left')
+        feats = feats.merge(get_countvectorizer_features(essays), on='id', how='left')
 
         return feats
 
