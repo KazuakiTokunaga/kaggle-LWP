@@ -184,8 +184,6 @@ def dev_feats(df):
     temp = temp.with_columns(pl.when(pl.col("time_diff") & pl.col("time_diff").is_last_distinct()).then(pl.count()).over(pl.col("time_diff").rle_id()).alias('P-bursts'))
     temp = temp.drop_nulls()
     temp = temp.group_by("id").agg(
-        pl.mean('P-bursts').name.suffix('_mean'), 
-        pl.std('P-bursts').name.suffix('_std'),
         pl.count('P-bursts').name.suffix('_count'),
         pl.median('P-bursts').name.suffix('_median'), 
         pl.max('P-bursts').name.suffix('_max'),
@@ -206,8 +204,6 @@ def dev_feats(df):
     temp = temp.with_columns(pl.when(pl.col("activity") & pl.col("activity").is_last_distinct()).then(pl.count()).over(pl.col("activity").rle_id()).alias('R-bursts'))
     temp = temp.drop_nulls()
     temp = temp.group_by("id").agg(
-        pl.mean('R-bursts').name.suffix('_mean'), 
-        pl.std('R-bursts').name.suffix('_std'), 
         pl.median('R-bursts').name.suffix('_median'), 
         pl.max('R-bursts').name.suffix('_max'),
         pl.first('R-bursts').name.suffix('_first'), 
