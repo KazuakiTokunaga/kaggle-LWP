@@ -104,12 +104,12 @@ def dev_feats(df):
 
     temp = df.filter((~pl.col('text_change').str.contains('=>')) & (pl.col('text_change') != 'NoChange'))
     temp = temp.group_by('id').agg(pl.col('text_change').str.concat('').str.extract_all(r'q+'))
-    temp = temp.with_columns(input_word_count = pl.col('text_change').list.lengths(),
-                             input_word_length_mean = pl.col('text_change').apply(lambda x: np.mean([len(i) for i in x] if len(x) > 0 else 0)),
-                             input_word_length_max = pl.col('text_change').apply(lambda x: np.max([len(i) for i in x] if len(x) > 0 else 0)),
-                             input_word_length_std = pl.col('text_change').apply(lambda x: np.std([len(i) for i in x] if len(x) > 0 else 0)),
-                             input_word_length_median = pl.col('text_change').apply(lambda x: np.median([len(i) for i in x] if len(x) > 0 else 0)),
-                             input_word_length_skew = pl.col('text_change').apply(lambda x: skew([len(i) for i in x] if len(x) > 0 else 0)))
+    temp = temp.with_columns(input_word_count = pl.col('text_change').list.len(),
+                             input_word_length_mean = pl.col('text_change').map_elements(lambda x: np.mean([len(i) for i in x] if len(x) > 0 else 0)),
+                             input_word_length_max = pl.col('text_change').map_elements(lambda x: np.max([len(i) for i in x] if len(x) > 0 else 0)),
+                             input_word_length_std = pl.col('text_change').map_elements(lambda x: np.std([len(i) for i in x] if len(x) > 0 else 0)),
+                             input_word_length_median = pl.col('text_change').map_elements(lambda x: np.median([len(i) for i in x] if len(x) > 0 else 0)),
+                             input_word_length_skew = pl.col('text_change').map_elements(lambda x: skew([len(i) for i in x] if len(x) > 0 else 0)))
     temp = temp.drop('text_change')
     feats = feats.join(temp, on='id', how='left') 
 
@@ -117,9 +117,9 @@ def dev_feats(df):
     
     logger.info("Numerical columns features")
 
-    temp = df.group_by("id").agg(pl.sum('action_time').suffix('_sum'), pl.mean(num_cols).suffix('_mean'), pl.std(num_cols).suffix('_std'),
-                                 pl.median(num_cols).suffix('_median'), pl.min(num_cols).suffix('_min'), pl.max(num_cols).suffix('_max'),
-                                 pl.quantile(num_cols, 0.5).suffix('_quantile'))
+    temp = df.group_by("id").agg(pl.sum('action_time').name.suffix('_sum'), pl.mean(num_cols).name.suffix('_mean'), pl.std(num_cols).name.suffix('_std'),
+                                 pl.median(num_cols).name.suffix('_median'), pl.min(num_cols).name.suffix('_min'), pl.max(num_cols).name.suffix('_max'),
+                                 pl.quantile(num_cols, 0.5).name.suffix('_quantile'))
     feats = feats.join(temp, on='id', how='left') 
 
 
@@ -153,11 +153,11 @@ def dev_feats(df):
     temp = temp.with_columns((abs(pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
     temp = temp.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
     temp = temp.with_columns(pl.col('time_diff')<2)
-    temp = temp.with_columns(pl.when(pl.col("time_diff") & pl.col("time_diff").is_last()).then(pl.count()).over(pl.col("time_diff").rle_id()).alias('P-bursts'))
+    temp = temp.with_columns(pl.when(pl.col("time_diff") & pl.col("time_diff").is_last_distinct()).then(pl.count()).over(pl.col("time_diff").rle_id()).alias('P-bursts'))
     temp = temp.drop_nulls()
-    temp = temp.group_by("id").agg(pl.mean('P-bursts').suffix('_mean'), pl.std('P-bursts').suffix('_std'), pl.count('P-bursts').suffix('_count'),
-                                   pl.median('P-bursts').suffix('_median'), pl.max('P-bursts').suffix('_max'),
-                                   pl.first('P-bursts').suffix('_first'), pl.last('P-bursts').suffix('_last'))
+    temp = temp.group_by("id").agg(pl.mean('P-bursts').name.suffix('_mean'), pl.std('P-bursts').name.suffix('_std'), pl.count('P-bursts').name.suffix('_count'),
+                                   pl.median('P-bursts').name.suffix('_median'), pl.max('P-bursts').name.suffix('_max'),
+                                   pl.first('P-bursts').name.suffix('_first'), pl.last('P-bursts').name.suffix('_last'))
     feats = feats.join(temp, on='id', how='left') 
 
 
@@ -165,14 +165,37 @@ def dev_feats(df):
 
     temp = df.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
     temp = temp.with_columns(pl.col('activity').is_in(['Remove/Cut']))
-    temp = temp.with_columns(pl.when(pl.col("activity") & pl.col("activity").is_last()).then(pl.count()).over(pl.col("activity").rle_id()).alias('R-bursts'))
+    temp = temp.with_columns(pl.when(pl.col("activity") & pl.col("activity").is_last_distinct()).then(pl.count()).over(pl.col("activity").rle_id()).alias('R-bursts'))
     temp = temp.drop_nulls()
-    temp = temp.group_by("id").agg(pl.mean('R-bursts').suffix('_mean'), pl.std('R-bursts').suffix('_std'), 
-                                   pl.median('R-bursts').suffix('_median'), pl.max('R-bursts').suffix('_max'),
-                                   pl.first('R-bursts').suffix('_first'), pl.last('R-bursts').suffix('_last'))
+    temp = temp.group_by("id").agg(pl.mean('R-bursts').name.suffix('_mean'), pl.std('R-bursts').name.suffix('_std'), 
+                                   pl.median('R-bursts').name.suffix('_median'), pl.max('R-bursts').name.suffix('_max'),
+                                   pl.first('R-bursts').name.suffix('_first'), pl.last('R-bursts').name.suffix('_last'))
     feats = feats.join(temp, on='id', how='left')
     
     return feats
+
+def create_shortcuts(df):
+
+    event_df = df[['id', 'event_id', 'down_event']].copy(deep=True)
+    event_df['down_event_shift_1'] = event_df['down_event'].shift(periods=1)
+    event_df['down_event_shift_2'] = event_df['down_event'].shift(periods=2)
+    event_df = event_df[['id', 'event_id', 'down_event_shift_2', 'down_event_shift_1', 'down_event']]
+
+    ctrl_left_df = ((event_df['down_event_shift_1'] == 'Control') & (event_df['down_event'] == 'ArrowLeft')).groupby(event_df['id']).sum().reset_index(name='count')
+    ctrl_right_df = ((event_df['down_event_shift_1'] == 'Control') & (event_df['down_event'] == 'ArrowRight')).groupby(event_df['id']).sum().reset_index(name='count')
+    ctrl_shift_left_df = ((event_df['down_event_shift_2'] == 'Control') & (event_df['down_event_shift_1'] == 'Shift') & (event_df['down_event'] == 'ArrowLeft')).groupby(event_df['id']).sum().reset_index(name='count')
+    ctrl_shift_right_df = ((event_df['down_event_shift_2'] == 'Control') & (event_df['down_event_shift_1'] == 'Shift') & (event_df['down_event'] == 'ArrowRight')).groupby(event_df['id']).sum().reset_index(name='count')
+    ctrl_c_df = ((event_df['down_event_shift_1'] == 'Control') & (event_df['down_event'].str.lower() == 'c')).groupby(event_df['id']).sum().reset_index(name='count')
+    ctrl_v_df = ((event_df['down_event_shift_1'] == 'Control') & (event_df['down_event'].str.lower() == 'v')).groupby(event_df['id']).sum().reset_index(name='count')
+    ctrl_x_df = ((event_df['down_event_shift_1'] == 'Control') & (event_df['down_event'].str.lower() == 'x')).groupby(event_df['id']).sum().reset_index(name='count')
+
+    kb_shortcut_df = pd.DataFrame(event_df['id'].unique(), columns=['id'])
+    kb_shortcut_df['ctrl_shift_count'] = ctrl_left_df['count'] + ctrl_right_df['count'] + ctrl_shift_left_df['count'] + ctrl_shift_right_df['count']
+    kb_shortcut_df['ctrl_c_cnt'] = ctrl_c_df['count']
+    kb_shortcut_df['ctrl_v_cnt'] = ctrl_v_df['count']
+    kb_shortcut_df['ctrl_x_cnt'] = ctrl_x_df['count']
+
+    return kb_shortcut_df
 
 
 def train_valid_split(data_x, data_y, train_idx, valid_idx):
@@ -345,12 +368,13 @@ class Runner():
         feats   = dev_feats(pl.from_pandas(df))
         feats   = feats.to_pandas()
     
-        essays           = get_essay_df(df)
-        feats            = feats.merge(word_feats(essays), on='id', how='left')
-        feats            = feats.merge(sent_feats(essays), on='id', how='left')
-        feats            = feats.merge(parag_feats(essays), on='id', how='left')
-        feats            = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
-        feats            = feats.merge(product_to_keys(df, essays), on='id', how='left')
+        essays = get_essay_df(df)
+        feats = feats.merge(word_feats(essays), on='id', how='left')
+        feats = feats.merge(sent_feats(essays), on='id', how='left')
+        feats = feats.merge(parag_feats(essays), on='id', how='left')
+        feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
+        feats = feats.merge(product_to_keys(df, essays), on='id', how='left')
+        feats = feats.merge(create_shortcuts(df), on='id', how='left')
 
         return feats
 
