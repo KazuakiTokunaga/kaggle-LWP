@@ -86,9 +86,19 @@ def dev_feats(df):
     temp = temp.with_columns(pl.col('time_diff')<2)
     temp = temp.with_columns(pl.when(pl.col("time_diff") & pl.col("time_diff").is_last()).then(pl.count()).over(pl.col("time_diff").rle_id()).alias('P-bursts'))
     temp = temp.drop_nulls()
-    temp = temp.group_by("id").agg(pl.mean('P-bursts').suffix('_mean'), pl.std('P-bursts').suffix('_std'), pl.count('P-bursts').suffix('_count'),
-                                   pl.median('P-bursts').suffix('_median'), pl.max('P-bursts').suffix('_max'),
-                                   pl.first('P-bursts').suffix('_first'), pl.last('P-bursts').suffix('_last'))
+    temp = temp.group_by("id").agg(
+        pl.mean('P-bursts').suffix('_mean'), 
+        pl.std('P-bursts').suffix('_std'),
+        pl.count('P-bursts').suffix('_count'),
+        pl.median('P-bursts').suffix('_median'), 
+        pl.max('P-bursts').suffix('_max'),
+        pl.first('P-bursts').suffix('_first'), 
+        pl.last('P-bursts').suffix('_last'),
+        pl.col('P-bursts').filter(pl.col('P-bursts') > 10).count().suffix('_count_gt_10'),
+        pl.col('P-bursts').filter(pl.col('P-bursts') > 30).count().suffix('_count_gt_30'),
+        pl.col('P-bursts').filter(pl.col('P-bursts') > 90).count().suffix('_count_gt_90'),
+        pl.col('P-bursts').filter(pl.col('P-bursts') > 150).count().suffix('_count_gt_150'),
+    )
     feats = feats.join(temp, on='id', how='left') 
 
 
@@ -98,9 +108,16 @@ def dev_feats(df):
     temp = temp.with_columns(pl.col('activity').is_in(['Remove/Cut']))
     temp = temp.with_columns(pl.when(pl.col("activity") & pl.col("activity").is_last()).then(pl.count()).over(pl.col("activity").rle_id()).alias('R-bursts'))
     temp = temp.drop_nulls()
-    temp = temp.group_by("id").agg(pl.mean('R-bursts').suffix('_mean'), pl.std('R-bursts').suffix('_std'), 
-                                   pl.median('R-bursts').suffix('_median'), pl.max('R-bursts').suffix('_max'),
-                                   pl.first('R-bursts').suffix('_first'), pl.last('R-bursts').suffix('_last'))
+    temp = temp.group_by("id").agg(
+        pl.mean('R-bursts').suffix('_mean'), 
+        pl.std('R-bursts').suffix('_std'), 
+        pl.median('R-bursts').suffix('_median'), 
+        pl.max('R-bursts').suffix('_max'),
+        pl.first('R-bursts').suffix('_first'), 
+        pl.last('R-bursts').suffix('_last'),
+        pl.col('R-burst').filter(pl.col('R-bursts') > 1).count().suffix('_count_gt_1'),
+        pl.col('R-burst').filter(pl.col('R-bursts') > 5).count().suffix('_count_gt_5'),
+    )
     feats = feats.join(temp, on='id', how='left')
     
     return feats
