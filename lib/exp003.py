@@ -184,15 +184,13 @@ def dev_feats(df):
     temp = temp.with_columns(pl.when(pl.col("time_diff") & pl.col("time_diff").is_last_distinct()).then(pl.count()).over(pl.col("time_diff").rle_id()).alias('P-bursts'))
     temp = temp.drop_nulls()
     temp = temp.group_by("id").agg(
+        pl.mean('P-bursts').name.suffix('_mean'), 
+        pl.std('P-bursts').name.suffix('_std'),
         pl.count('P-bursts').name.suffix('_count'),
         pl.median('P-bursts').name.suffix('_median'), 
         pl.max('P-bursts').name.suffix('_max'),
         pl.first('P-bursts').name.suffix('_first'), 
         pl.last('P-bursts').name.suffix('_last'),
-        pl.col('P-bursts').filter(pl.col('P-bursts') > 10).count().name.suffix('_count_gt_10'),
-        pl.col('P-bursts').filter(pl.col('P-bursts') > 30).count().name.suffix('_count_gt_30'),
-        pl.col('P-bursts').filter(pl.col('P-bursts') > 90).count().name.suffix('_count_gt_90'),
-        pl.col('P-bursts').filter(pl.col('P-bursts') > 150).count().name.suffix('_count_gt_150'),
     )
     feats = feats.join(temp, on='id', how='left') 
 
@@ -204,12 +202,12 @@ def dev_feats(df):
     temp = temp.with_columns(pl.when(pl.col("activity") & pl.col("activity").is_last_distinct()).then(pl.count()).over(pl.col("activity").rle_id()).alias('R-bursts'))
     temp = temp.drop_nulls()
     temp = temp.group_by("id").agg(
+        pl.mean('R-bursts').name.suffix('_mean'), 
+        pl.std('R-bursts').name.suffix('_std'), 
         pl.median('R-bursts').name.suffix('_median'), 
         pl.max('R-bursts').name.suffix('_max'),
         pl.first('R-bursts').name.suffix('_first'), 
         pl.last('R-bursts').name.suffix('_last'),
-        pl.col('R-bursts').filter(pl.col('R-bursts') > 1).count().name.suffix('_count_gt_1'),
-        pl.col('R-bursts').filter(pl.col('R-bursts') > 5).count().name.suffix('_count_gt_5'),
     )
     feats = feats.join(temp, on='id', how='left')
     
