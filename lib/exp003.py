@@ -539,6 +539,7 @@ class Runner():
                 for fold in range(RCFG.n_splits):
                     model = self.models_dict[f'{split_id}_{seed_id}_{fold}']
                     train_cols = model.feature_name_
+                    logger.info(f'model: {split_id}_{seed_id}_{fold}, train_cols: {len(train_cols)}')
                     X_test = self.test_feats[train_cols]
                     test_predict = model.predict(X_test)
                     test_predict_list.append(test_predict)
