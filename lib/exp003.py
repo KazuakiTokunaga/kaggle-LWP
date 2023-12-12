@@ -152,7 +152,6 @@ def dev_feats(df):
                                    pauses_2_sec = pl.col('time_diff').filter((pl.col('time_diff') > 2) & (pl.col('time_diff') < 3)).count(),
                                    pauses_3_sec = pl.col('time_diff').filter(pl.col('time_diff') > 3).count(),)
     feats = feats.join(temp, on='id', how='left') 
-    feats = feats.join(temp, on='id', how='left') 
     
     logger.info("< P-bursts features >")
 
