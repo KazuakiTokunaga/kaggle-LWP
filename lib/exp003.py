@@ -27,7 +27,6 @@ import datetime
 from utils.utils import Logger, WriteSheet
 from utils.utils import class_vars_to_dict
 from utils.utils import add_random_feature
-from utils.essay import getEssays
 
 logger = Logger()
 
@@ -178,15 +177,15 @@ def dev_feats(df):
                                    pauses_3_sec = pl.col('time_diff').filter(pl.col('time_diff') > 3).count(),)
     feats = feats.join(temp, on='id', how='left') 
 
-    # temp = df.with_columns(pl.col('word_count').shift(100).over('id').alias('word_count_shift50'))
-    # temp = temp.with_columns((pl.col('word_count') - pl.col('word_count_shift50')).alias('word_count_gap50'))
-    # temp = temp.group_by("id").agg(
-    #     pl.mean('word_count_gap50').name.suffix('_mean'), 
-    #     pl.std('word_count_gap50').name.suffix('_std'),
-    #     pl.max('word_count_gap50').name.suffix('_max'),
-    #     pl.median('word_count_gap50').name.suffix('_median'),
-    # )
-    # feats = feats.join(temp, on='id', how='left')
+    temp = df.with_columns(pl.col('word_count').shift(100).over('id').alias('word_count_shift50'))
+    temp = temp.with_columns((pl.col('word_count') - pl.col('word_count_shift50')).alias('word_count_gap50'))
+    temp = temp.group_by("id").agg(
+        pl.mean('word_count_gap50').name.suffix('_mean'), 
+        pl.std('word_count_gap50').name.suffix('_std'),
+        pl.max('word_count_gap50').name.suffix('_max'),
+        pl.median('word_count_gap50').name.suffix('_median'),
+    )
+    feats = feats.join(temp, on='id', how='left')
 
     logger.info("< P-bursts features >")
 
@@ -409,8 +408,8 @@ class Runner():
         feats = feats.merge(product_to_keys(df, essays), on='id', how='left')
         feats = feats.merge(create_shortcuts(df), on='id', how='left')
 
-        logger.info('Add CountVectorizer features.')
-        feats = feats.merge(get_countvectorizer_features(essays, mode=mode), on='id', how='left')
+        # logger.info('Add CountVectorizer features.')
+        # feats = feats.merge(get_countvectorizer_features(essays, mode=mode), on='id', how='left')
 
         return feats
 
