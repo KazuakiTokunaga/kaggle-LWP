@@ -177,7 +177,17 @@ def dev_feats(df):
                                    pauses_2_sec = pl.col('time_diff').filter((pl.col('time_diff') > 2) & (pl.col('time_diff') < 3)).count(),
                                    pauses_3_sec = pl.col('time_diff').filter(pl.col('time_diff') > 3).count(),)
     feats = feats.join(temp, on='id', how='left') 
-    
+
+    # temp = df.with_columns(pl.col('word_count').shift(100).over('id').alias('word_count_shift50'))
+    # temp = temp.with_columns((pl.col('word_count') - pl.col('word_count_shift50')).alias('word_count_gap50'))
+    # temp = temp.group_by("id").agg(
+    #     pl.mean('word_count_gap50').name.suffix('_mean'), 
+    #     pl.std('word_count_gap50').name.suffix('_std'),
+    #     pl.max('word_count_gap50').name.suffix('_max'),
+    #     pl.median('word_count_gap50').name.suffix('_median'),
+    # )
+    # feats = feats.join(temp, on='id', how='left')
+
     logger.info("< P-bursts features >")
 
     temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
@@ -213,6 +223,7 @@ def dev_feats(df):
         pl.last('R-bursts').name.suffix('_last'),
     )
     feats = feats.join(temp, on='id', how='left')
+
     
     return feats
 
@@ -448,7 +459,9 @@ class Runner():
                         self.train_cols = feature_df[(~feature_df['feature'].str.contains('ngram')) | (feature_df.index <= dummy_random_idx)]['feature'].tolist()
                         self.train_cols = [c for c in self.train_cols if not c.startswith('dummy_random')]
                     else:
-                        self.train_cols = feature_df.head(RCFG.use_feature_rank)['feature'].tolist()
+                        # self.train_cols = feature_df[feature_df.index <= RCFG.use_feature_rank]['feature'].tolist()
+                        self.train_cols = feature_df[(~feature_df['feature'].str.contains('ngram')) | (feature_df.index <= RCFG.use_feature_rank)]['feature'].tolist()
+                        
                     if seed_id == 0:
                         logger.info(f'self.train_cols: {len(self.train_cols)}')
 
