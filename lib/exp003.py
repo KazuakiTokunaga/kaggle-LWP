@@ -104,18 +104,10 @@ def get_countvectorizer_features(df, ngram=(1,3), thre=0.03, mode='train'):
     df_train_index = pd.Index(df['id'].unique(), name = 'id')
     feature_names = count_vectorizer.get_feature_names_out()
 
-    df_result = pd.DataFrame(data=X_tokenizer_train, index = df_train_index, columns=feature_names)[[
-        "qq qqqqqqq",
-        "qq qqq qqqq",
-        "qqqqqq qqqq qq",
-        "qqqqqqq qqqqqq",
-        "qqqqqq qq",
-        "qqq qqqqqqqq qqq",
-        "qqq qqqq qqqqq"
-    ]]
-    df_result.columns = [f"{c}_ngram" for c in df_result.columns]
+    df_result = pd.DataFrame(data=X_tokenizer_train, index = df_train_index, columns=feature_names)
+    df_result.columns = [f"{c.replace(' ', '_')}_ngram" for c in df_result.columns]
+
     return df_result
-    
 
 
 def count_by_values(df, colname, values, suffix=""):
@@ -157,7 +149,7 @@ def dev_feats(df):
     temp = df.group_by("id").agg(pl.sum('action_time').name.suffix('_sum'), pl.mean(num_cols).name.suffix('_mean'), pl.std(num_cols).name.suffix('_std'),
                                  pl.median(num_cols).name.suffix('_median'), pl.min(num_cols).name.suffix('_min'), pl.max(num_cols).name.suffix('_max'),
                                  pl.quantile(num_cols, 0.5).name.suffix('_quantile'))
-    # temp = temp.drop(["cursor_position_min", "word_count_min"])
+    temp = temp.drop(["cursor_position_min", "word_count_min"])
     feats = feats.join(temp, on='id', how='left') 
 
 
@@ -247,27 +239,6 @@ def create_shortcuts(df):
 
     return kb_shortcut_df
 
-
-def train_valid_split(data_x, data_y, train_idx, valid_idx):
-    x_train = data_x.iloc[train_idx]
-    y_train = data_y[train_idx]
-    x_valid = data_x.iloc[valid_idx]
-    y_valid = data_y[valid_idx]
-    return x_train, y_train, x_valid, y_valid
-
-
-def evaluate(data_x, data_y, model, random_state=42, n_splits=5, test_x=None):
-    skf    = StratifiedKFold(n_splits=n_splits, random_state=random_state, shuffle=True)
-    test_y = np.zeros(len(data_x)) if (test_x is None) else np.zeros((len(test_x), n_splits))
-    for i, (train_index, valid_index) in enumerate(skf.split(data_x, data_y.astype(str))):
-        train_x, train_y, valid_x, valid_y = train_valid_split(data_x, data_y, train_index, valid_index)
-        model.fit(train_x, train_y)
-        if test_x is None:
-            test_y[valid_index] = model.predict(valid_x)
-        else:
-            test_y[:, i] = model.predict(test_x)
-    return test_y if (test_x is None) else np.mean(test_y, axis=1)
-
 def q1(x):
     return x.quantile(0.25)
 def q3(x):
@@ -322,7 +293,7 @@ def word_feats(df):
     word_agg_df.columns = ['_'.join(x) for x in word_agg_df.columns]
     word_agg_df['id'] = word_agg_df.index
     word_agg_df = word_agg_df.reset_index(drop=True)
-    # word_agg_df.drop(columns=["word_len_min"], inplace=True)
+    word_agg_df.drop(columns=["word_len_min"], inplace=True)
     return word_agg_df
 
 
@@ -473,7 +444,8 @@ class Runner():
                     feature_df = feature_df.sort_values(by="importance", ascending=False).reset_index()
                     if RCFG.use_random_features:
                         dummy_random_idx = feature_df[feature_df['feature'].str.startswith('dummy_random')].index[RCFG.threshold_random_features]
-                        self.train_cols = feature_df[feature_df.index <= dummy_random_idx]['feature'].tolist()
+            
+                        self.train_cols = feature_df[(~feature_df['feature'].str.contains('ngram')) | (feature_df.index <= dummy_random_idx)]['feature'].tolist()
                         self.train_cols = [c for c in self.train_cols if not c.startswith('dummy_random')]
                     else:
                         self.train_cols = feature_df.head(RCFG.use_feature_rank)['feature'].tolist()
