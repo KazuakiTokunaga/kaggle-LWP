@@ -86,11 +86,18 @@ special_char_to_text = {
     ')': 'right_parenthesis', '_': 'underscore',
 }
 
-def get_countvectorizer_features(df, ngram=(1,3), thre=0.03):
+def get_countvectorizer_features(df, ngram=(1,3), thre=0.03, mode='train'):
 
-    count_vectorizer = CountVectorizer(ngram_range=ngram, min_df=thre)
-    # count_vectorizer = TfidfVectorizer(ngram_range=ngram, min_df=thre)
-    X_tokenizer_train = count_vectorizer.fit_transform(df['essay']).todense()
+    if mode == 'train':
+        count_vectorizer = CountVectorizer(ngram_range=ngram, min_df=thre)
+        count_vectorizer.fit(df['essay'])
+        with open(f'{ENV.output_dir}count_vectorizer.pickle', mode='wb') as f:
+            pickle.dump(count_vectorizer, f)
+    else:
+        with open(f'{ENV.model_dir}count_vectorizer.pickle', mode='rb') as f:
+            count_vectorizer = pickle.load(f)
+
+    X_tokenizer_train = count_vectorizer.transform(df['essay']).todense()
     df_train_index = pd.Index(df['id'].unique(), name = 'id')
     feature_names = count_vectorizer.get_feature_names_out()
 
@@ -147,6 +154,7 @@ def dev_feats(df):
     temp = df.group_by("id").agg(pl.sum('action_time').name.suffix('_sum'), pl.mean(num_cols).name.suffix('_mean'), pl.std(num_cols).name.suffix('_std'),
                                  pl.median(num_cols).name.suffix('_median'), pl.min(num_cols).name.suffix('_min'), pl.max(num_cols).name.suffix('_max'),
                                  pl.quantile(num_cols, 0.5).name.suffix('_quantile'))
+    # temp = temp.drop(["cursor_position_min", "word_count_min"])
     feats = feats.join(temp, on='id', how='left') 
 
 
@@ -311,6 +319,7 @@ def word_feats(df):
     word_agg_df.columns = ['_'.join(x) for x in word_agg_df.columns]
     word_agg_df['id'] = word_agg_df.index
     word_agg_df = word_agg_df.reset_index(drop=True)
+    # word_agg_df.drop(columns=["word_len_min"], inplace=True)
     return word_agg_df
 
 
@@ -402,7 +411,7 @@ class Runner():
             target_id = self.train_logs['id'].unique()[:RCFG.debug_size]
             self.train_logs = self.train_logs[self.train_logs['id'].isin(target_id)]
     
-    def _add_features(self, df):
+    def _add_features(self, df, mode='train'):
 
         feats   = dev_feats(pl.from_pandas(df))
         feats   = feats.to_pandas()
@@ -414,7 +423,7 @@ class Runner():
         feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
         feats = feats.merge(product_to_keys(df, essays), on='id', how='left')
         feats = feats.merge(create_shortcuts(df), on='id', how='left')
-        feats = feats.merge(get_countvectorizer_features(essays), on='id', how='left')
+        feats = feats.merge(get_countvectorizer_features(essays, mode=mode), on='id', how='left')
 
         return feats
 
@@ -425,7 +434,7 @@ class Runner():
         
         if RCFG.preprocess_train:
             logger.info('Preprocess train data. Create features for train data.')
-            train_feats = self._add_features(self.train_logs)
+            train_feats = self._add_features(self.train_logs, mode='train')
             self.train_feats = train_feats.merge(self.train_scores, on='id', how='left')
             self.train_feats.to_csv(f'{ENV.output_dir}train_feats.csv', index=False)
         else:
@@ -435,7 +444,7 @@ class Runner():
         if RCFG.predict:        
             logger.info('Preprocess test data. Get essays of test data.')
             logger.info('Create features for test data.')
-            self.test_feats = self._add_features(self.test_logs)
+            self.test_feats = self._add_features(self.test_logs, mode='test')
 
     def _train_fold_seed(self, mode='first', split_id=0):
 
