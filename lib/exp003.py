@@ -91,9 +91,12 @@ def get_countvectorizer_features(df, ngram=(1,3), thre=0.03, mode='train'):
     if mode == 'train':
         count_vectorizer = CountVectorizer(ngram_range=ngram, min_df=thre)
         count_vectorizer.fit(df['essay'])
+
+        logger.info(f'Save CountVectorizer as {ENV.output_dir}count_vectorizer.pickle.')
         with open(f'{ENV.output_dir}count_vectorizer.pickle', mode='wb') as f:
             pickle.dump(count_vectorizer, f)
     else:
+        logger.info(f'Load CountVectorizer from {ENV.model_dir}.')
         with open(f'{ENV.model_dir}count_vectorizer.pickle', mode='rb') as f:
             count_vectorizer = pickle.load(f)
 
@@ -423,6 +426,8 @@ class Runner():
         feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
         feats = feats.merge(product_to_keys(df, essays), on='id', how='left')
         feats = feats.merge(create_shortcuts(df), on='id', how='left')
+
+        logger.info('Add CountVectorizer features.')
         feats = feats.merge(get_countvectorizer_features(essays, mode=mode), on='id', how='left')
 
         return feats
