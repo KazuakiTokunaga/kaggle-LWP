@@ -123,13 +123,11 @@ def count_by_values(df, colname, values, suffix=""):
 def dev_feats(df):
     
     logger.info("Count by values features")
-    
     feats = count_by_values(df, 'activity', activities)
     feats = feats.join(count_by_values(df, 'text_change', text_changes), on='id', how='left') 
     feats = feats.join(count_by_values(df, 'down_event', events), on='id', how='left') 
 
     logger.info("Input words stats features")
-
     temp = df.filter((~pl.col('text_change').str.contains('=>')) & (pl.col('text_change') != 'NoChange'))
     temp = temp.group_by('id').agg(pl.col('text_change').str.concat('').str.extract_all(r'q+'))
     temp = temp.with_columns(input_word_count = pl.col('text_change').list.len(),
@@ -141,10 +139,8 @@ def dev_feats(df):
     temp = temp.drop('text_change')
     feats = feats.join(temp, on='id', how='left') 
 
-
     
     logger.info("Numerical columns features")
-
     temp = df.group_by("id").agg(pl.sum('action_time').name.suffix('_sum'), pl.mean(num_cols).name.suffix('_mean'), pl.std(num_cols).name.suffix('_std'),
                                  pl.median(num_cols).name.suffix('_median'), pl.min(num_cols).name.suffix('_min'), pl.max(num_cols).name.suffix('_max'),
                                  pl.quantile(num_cols, 0.5).name.suffix('_quantile'))
@@ -153,14 +149,11 @@ def dev_feats(df):
 
 
     logger.info("Categorical columns features")
-    
     temp  = df.group_by("id").agg(pl.n_unique(['activity', 'down_event', 'up_event', 'text_change']))
     feats = feats.join(temp, on='id', how='left') 
 
 
-    
     logger.info("Idle time features")
-
     temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
     temp = temp.with_columns(((pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
     temp = temp.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
@@ -206,9 +199,25 @@ def dev_feats(df):
     )
     feats = feats.join(temp, on='id', how='left') 
 
+    temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
+    temp = temp.with_columns((abs(pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
+    temp = temp.with_columns(pl.col('activity').is_in(['Input']))
+    temp = temp.with_columns(pl.col('time_diff')<3)
+    temp = temp.with_columns(pl.when(pl.col("time_diff") & pl.col("time_diff").is_last_distinct()).then(pl.count()).over(pl.col("time_diff").rle_id()).alias('P-bursts'))
+    temp = temp.drop_nulls()
+    temp = temp.group_by("id").agg(
+        pl.mean('P-bursts_v2').name.suffix('_mean'), 
+        pl.std('P-bursts_v2').name.suffix('_std'),
+        pl.count('P-bursts_v2').name.suffix('_count'),
+        pl.median('P-bursts_v2').name.suffix('_median'), 
+        pl.max('P-bursts_v2').name.suffix('_max'),
+        pl.first('P-bursts_v2').name.suffix('_first'), 
+        pl.last('P-bursts_v2').name.suffix('_last'),
+    )
+    feats = feats.join(temp, on='id', how='left') 
 
-    logger.info("< R-bursts features >")
 
+    logger.info("R-bursts features ")
     temp = df.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
     temp = temp.with_columns(pl.col('activity').is_in(['Remove/Cut']))
     temp = temp.with_columns(pl.when(pl.col("activity") & pl.col("activity").is_last_distinct()).then(pl.count()).over(pl.col("activity").rle_id()).alias('R-bursts'))
