@@ -491,6 +491,7 @@ class Runner():
                 rmse = np.round(metrics.mean_squared_error(y_valid, valid_predict, squared=False), 6)
                 logger.info(f'Seed_id {seed_id} fold {fold} rmse: {rmse}, best iteration: {model.best_iteration_}')
 
+            self.oof_valid_preds_df[f'oof_{split_id}_{seed_id}'] = oof_valid_preds
             oof_score = np.round(metrics.mean_squared_error(self.train_feats[target_col], oof_valid_preds, squared=False), 6)
             logger.info(f'oof score for seed_id {seed_id}: {oof_score}')
             oofscore.append(oof_score)
@@ -523,6 +524,7 @@ class Runner():
         self.second_oofscores = {}
         self.first_cvscore = {}
         self.second_cvscore = {}
+        self.oof_valid_preds_df = pd.DataFrame(self.train_feats['id'].unique(), columns=['id'])
 
         for split_id in range(RCFG.split_cnt):
             kf = model_selection.StratifiedKFold(n_splits=RCFG.n_splits, random_state= 42+ split_id, shuffle=True)
@@ -561,7 +563,8 @@ class Runner():
         with open(f'{ENV.output_dir}models_dict.pickle', 'wb') as f:
             logger.info(f'save models_dict to {ENV.output_dir}models_dict.pickle')
             pickle.dump(self.models_dict, f)
-    
+
+        self.oof_valid_preds_df.to_csv(f'{ENV.output_dir}oof_valid_preds.csv', index=False)
 
     def write_sheet(self, ):
         logger.info('Write scores to google sheet.')
