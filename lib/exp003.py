@@ -203,7 +203,7 @@ def dev_feats(df):
     temp = temp.with_columns((abs(pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
     temp = temp.with_columns(pl.col('activity').is_in(['Input']))
     temp = temp.with_columns(pl.col('time_diff')<3)
-    temp = temp.with_columns(pl.when(pl.col("time_diff") & pl.col("time_diff").is_last_distinct()).then(pl.count()).over(pl.col("time_diff").rle_id()).alias('P-bursts'))
+    temp = temp.with_columns(pl.when(pl.col("time_diff") & pl.col("time_diff").is_last_distinct()).then(pl.count()).over(pl.col("time_diff").rle_id()).alias('P-bursts_v2'))
     temp = temp.drop_nulls()
     temp = temp.group_by("id").agg(
         pl.mean('P-bursts_v2').name.suffix('_mean'), 
