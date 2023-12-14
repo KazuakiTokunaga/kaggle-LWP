@@ -180,8 +180,7 @@ def dev_feats(df):
     )
     feats = feats.join(temp, on='id', how='left')
 
-    logger.info("< P-bursts features >")
-
+    # 2秒以内で入力/削除したストリーム
     temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
     temp = temp.with_columns((abs(pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
     temp = temp.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
@@ -199,25 +198,25 @@ def dev_feats(df):
     )
     feats = feats.join(temp, on='id', how='left') 
 
-    temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
-    temp = temp.with_columns((abs(pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
-    temp = temp.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
-    temp = temp.with_columns(((pl.col('activity').is_in(['Input']))&(pl.col('time_diff')<2)).alias('flag'))
-    temp = temp.with_columns(pl.when(pl.col("flag") & pl.col("flag").is_last_distinct()).then(pl.count()).over(pl.col("flag").rle_id()).alias('P-bursts_v2'))
-    temp = temp.drop_nulls()
-    temp = temp.group_by("id").agg(
-        pl.mean('P-bursts_v2').name.suffix('_mean'), 
-        pl.std('P-bursts_v2').name.suffix('_std'),
-        pl.count('P-bursts_v2').name.suffix('_count'),
-        pl.median('P-bursts_v2').name.suffix('_median'), 
-        pl.max('P-bursts_v2').name.suffix('_max'),
-        pl.first('P-bursts_v2').name.suffix('_first'), 
-        pl.last('P-bursts_v2').name.suffix('_last'),
-    )
-    feats = feats.join(temp, on='id', how='left') 
+    # 2秒以内で入力したストリーム
+    # temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
+    # temp = temp.with_columns((abs(pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
+    # temp = temp.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
+    # temp = temp.with_columns(((pl.col('activity').is_in(['Input']))&(pl.col('time_diff')<2)).alias('flag'))
+    # temp = temp.with_columns(pl.when(pl.col("flag") & pl.col("flag").is_last_distinct()).then(pl.count()).over(pl.col("flag").rle_id()).alias('P-bursts_v2'))
+    # temp = temp.drop_nulls()
+    # temp = temp.group_by("id").agg(
+    #     pl.mean('P-bursts_v2').name.suffix('_mean'), 
+    #     pl.std('P-bursts_v2').name.suffix('_std'),
+    #     pl.count('P-bursts_v2').name.suffix('_count'),
+    #     pl.median('P-bursts_v2').name.suffix('_median'), 
+    #     pl.max('P-bursts_v2').name.suffix('_max'),
+    #     pl.first('P-bursts_v2').name.suffix('_first'), 
+    #     pl.last('P-bursts_v2').name.suffix('_last'),
+    # )
+    # feats = feats.join(temp, on='id', how='left') 
 
-
-    logger.info("R-bursts features ")
+    # 削除のストリーム
     temp = df.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
     temp = temp.with_columns(pl.col('activity').is_in(['Remove/Cut']))
     temp = temp.with_columns(pl.when(pl.col("activity") & pl.col("activity").is_last_distinct()).then(pl.count()).over(pl.col("activity").rle_id()).alias('R-bursts'))
@@ -229,6 +228,24 @@ def dev_feats(df):
         pl.max('R-bursts').name.suffix('_max'),
         pl.first('R-bursts').name.suffix('_first'), 
         pl.last('R-bursts').name.suffix('_last'),
+    )
+    feats = feats.join(temp, on='id', how='left')
+
+    # 連続で削除するストリーム
+    temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
+    temp = temp.with_columns((abs(pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
+    temp = temp.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
+    temp = temp.with_columns(((pl.col('activity').is_in(['Remove/Cut'])) & (pl.col('time_diff')<0.1)).alias('flag'))
+    temp = temp.with_columns(pl.when(pl.col("flag") & pl.col("flag").is_last_distinct()).then(pl.count()).over(pl.col("flag").rle_id()).alias('R-bursts_v2'))
+    temp = temp.drop_nulls()
+    temp = temp.group_by("id").agg(
+        pl.col('R-bursts_v2').filter(pl.col('R-bursts_v2') > 1).mean().name.suffix('_mean'),
+        pl.col('R-bursts_v2').filter(pl.col('R-bursts_v2') > 1).std().name.suffix('_std'),
+        pl.col('R-bursts_v2').filter(pl.col('R-bursts_v2') > 1).median().name.suffix('_median'),
+        pl.col('R-bursts_v2').filter(pl.col('R-bursts_v2') > 1).count().name.suffix('_count'),
+        pl.col('R-bursts_v2').filter(pl.col('R-bursts_v2') > 1).first().name.suffix('_first'),
+        pl.col('R-bursts_v2').filter(pl.col('R-bursts_v2') > 1).last().name.suffix('_last'),
+        pl.col('R-bursts_v2').filter(pl.col('R-bursts_v2') > 1).max().name.suffix('_max'),
     )
     feats = feats.join(temp, on='id', how='left')
 
