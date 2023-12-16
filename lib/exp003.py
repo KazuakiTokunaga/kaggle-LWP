@@ -581,7 +581,7 @@ class Runner():
 
         oof_column = [c for c in self.oof_valid_preds_df.columns if c.startswith('oof')]
         self.oof_valid_preds_df['mean_oof'] = self.oof_valid_preds_df[oof_column].mean(axis=1)
-        self.oof_valid_preds_df = self.oof_valid_preds_df.merge(run.train_scores, on='id')
+        self.oof_valid_preds_df = self.oof_valid_preds_df.merge(self.train_scores, on='id')
         self.oof_valid_preds_df['se'] = np.round((self.oof_valid_preds_df['mean_oof'] - self.oof_valid_preds_df['score']) ** 2, 5)
         self.final_score = self.oof_valid_preds_df['se'].mean() ** 0.5
 
