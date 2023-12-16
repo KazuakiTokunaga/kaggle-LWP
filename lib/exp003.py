@@ -198,24 +198,6 @@ def dev_feats(df):
     )
     feats = feats.join(temp, on='id', how='left') 
 
-    # # 2秒以内で入力したストリーム
-    # temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
-    # temp = temp.with_columns((abs(pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
-    # temp = temp.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
-    # temp = temp.with_columns(((pl.col('activity').is_in(['Input']))&(pl.col('time_diff')<0.5)).alias('flag'))
-    # temp = temp.with_columns(pl.when(pl.col("flag") & pl.col("flag").is_last_distinct()).then(pl.count()).over(pl.col("flag").rle_id()).alias('P-bursts_v2'))
-    # temp = temp.drop_nulls()
-    # temp = temp.group_by("id").agg(
-    #     pl.mean('P-bursts_v2').name.suffix('_mean'), 
-    #     pl.std('P-bursts_v2').name.suffix('_std'),
-    #     pl.count('P-bursts_v2').name.suffix('_count'),
-    #     pl.median('P-bursts_v2').name.suffix('_median'), 
-    #     pl.max('P-bursts_v2').name.suffix('_max'),
-    #     pl.first('P-bursts_v2').name.suffix('_first'), 
-    #     pl.last('P-bursts_v2').name.suffix('_last'),
-    # )
-    # feats = feats.join(temp, on='id', how='left') 
-
     # 削除のストリーム
     temp = df.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
     temp = temp.with_columns(pl.col('activity').is_in(['Remove/Cut']))
@@ -231,28 +213,45 @@ def dev_feats(df):
     )
     feats = feats.join(temp, on='id', how='left')
 
-    # # 連続で削除するストリーム
-    # temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
-    # temp = temp.with_columns((abs(pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
-    # temp = temp.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
-    # temp = temp.with_columns(((pl.col('activity').is_in(['Remove/Cut'])) & (pl.col('time_diff')<0.1)).alias('flag'))
-    # temp = temp.with_columns(pl.when(pl.col("flag") & pl.col("flag").is_last_distinct()).then(pl.count()).over(pl.col("flag").rle_id()).alias('R-bursts_v2'))
-    # temp = temp.drop_nulls()
-    # temp = temp.group_by("id").agg(
-    #     pl.col('R-bursts_v2').filter(pl.col('R-bursts_v2') > 1).mean().name.suffix('_mean'),
-    #     pl.col('R-bursts_v2').filter(pl.col('R-bursts_v2') > 1).std().name.suffix('_std'),
-    #     pl.col('R-bursts_v2').filter(pl.col('R-bursts_v2') > 1).median().name.suffix('_median'),
-    #     pl.col('R-bursts_v2').filter(pl.col('R-bursts_v2') > 1).count().name.suffix('_count'),
-    #     pl.col('R-bursts_v2').filter(pl.col('R-bursts_v2') > 1).first().name.suffix('_first'),
-    #     pl.col('R-bursts_v2').filter(pl.col('R-bursts_v2') > 1).last().name.suffix('_last'),
-    #     pl.col('R-bursts_v2').filter(pl.col('R-bursts_v2') > 1).max().name.suffix('_max'),
-    # )
-    # feats = feats.join(temp, on='id', how='left')
-    
+
     return feats
 
+
 def dev_feats_last(df):
-    pass
+
+    df_target = df.filter(pl.col('down_time')>= 25 * 60 * 1000)
+
+    # count
+    feats = count_by_values(df_target, 'activity', ['Input', 'Remove/Cut', 'Nonproduction'], suffix='_last')
+    tmp = count_by_values(df_target, 'down_event', ['q', 'Space', 'Backspace', 'Shift', 'ArrowRight', 'Leftclick', 'ArrowLeft', '.', ','], suffix='_last')
+    feats = feats.join(tmp, on='id', how='left') 
+
+    # numerical ccolumns
+    temp = df_target.group_by("id").agg(pl.sum('action_time').name.suffix('_sum'), pl.mean(num_cols).name.suffix('_mean'), pl.std(num_cols).name.suffix('_std'),
+                                 pl.median(num_cols).name.suffix('_median'), pl.min(num_cols).name.suffix('_min'), pl.max(num_cols).name.suffix('_max'),
+                                 pl.quantile(num_cols, 0.5).name.suffix('_quantile'))
+    temp = temp.drop(["cursor_position_min", "word_count_min"])
+    feats = feats.join(temp, on='id', how='left') 
+
+    # idle
+    temp = df_target.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
+    temp = temp.with_columns(((pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
+    temp = temp.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
+    temp = temp.group_by("id").agg(
+        inter_key_largest_lantency_last = pl.max('time_diff'),
+        inter_key_median_lantency_last = pl.median('time_diff'),
+        mean_pause_time_last = pl.mean('time_diff'),
+        std_pause_time_last = pl.std('time_diff'),
+        total_pause_time_last = pl.sum('time_diff'),
+        pauses_minus_sec_last = pl.col('time_diff').filter(pl.col('time_diff') < 0).count(),                                   
+        pauses_1_sec_last = pl.col('time_diff').filter((pl.col('time_diff') > 1) & (pl.col('time_diff') < 1.5)).count(),
+        pauses_10_sec_last = pl.col('time_diff').filter(pl.col('time_diff') > 3).count(),
+        pauses_30_sec_last = pl.col('time_diff').filter(pl.col('time_diff') > 3).count()
+    )
+    feats = feats.join(temp, on='id', how='left') 
+
+    return feats
+
 
 def create_shortcuts(df):
 
@@ -425,8 +424,9 @@ class Runner():
     
     def _add_features(self, df, mode='train'):
 
-        feats   = dev_feats(pl.from_pandas(df))
-        feats   = feats.to_pandas()
+        feats = dev_feats(pl.from_pandas(df))
+        feats = feats.join(dev_feats_last(pl.from_pandas(df)), on='id', how='left')
+        feats = feats.to_pandas()
     
         essays = get_essay_df(df)
         feats = feats.merge(word_feats(essays), on='id', how='left')
