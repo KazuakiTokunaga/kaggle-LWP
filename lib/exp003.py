@@ -121,13 +121,11 @@ def count_by_values(df, colname, values, suffix=""):
 
 
 def dev_feats(df):
-    
-    df_upper = df.filter(pl.col('down_time') < 25 * 60 * 1000)
 
     logger.info("Count by values features")
-    feats = count_by_values(df_upper, 'activity', activities)
-    feats = feats.join(count_by_values(df_upper, 'text_change', text_changes), on='id', how='left') 
-    feats = feats.join(count_by_values(df_upper, 'down_event', events), on='id', how='left') 
+    feats = count_by_values(df, 'activity', activities)
+    feats = feats.join(count_by_values(df, 'text_change', text_changes), on='id', how='left') 
+    feats = feats.join(count_by_values(df, 'down_event', events), on='id', how='left') 
 
     logger.info("Input words stats features")
     temp = df.filter((~pl.col('text_change').str.contains('=>')) & (pl.col('text_change') != 'NoChange'))
@@ -143,7 +141,7 @@ def dev_feats(df):
 
     
     logger.info("Numerical columns features")
-    temp = df_upper.group_by("id").agg(pl.sum('action_time').name.suffix('_sum'), pl.mean(num_cols).name.suffix('_mean'), pl.std(num_cols).name.suffix('_std'),
+    temp = df.group_by("id").agg(pl.sum('action_time').name.suffix('_sum'), pl.mean(num_cols).name.suffix('_mean'), pl.std(num_cols).name.suffix('_std'),
                                  pl.median(num_cols).name.suffix('_median'), pl.min(num_cols).name.suffix('_min'), pl.max(num_cols).name.suffix('_max'),
                                  pl.quantile(num_cols, 0.5).name.suffix('_quantile'))
     temp = temp.drop(["cursor_position_min", "word_count_min"])
@@ -156,7 +154,7 @@ def dev_feats(df):
 
 
     logger.info("Idle time features")
-    temp = df_upper.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
+    temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
     temp = temp.with_columns(((pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
     temp = temp.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
     temp = temp.group_by("id").agg(inter_key_largest_lantency = pl.max('time_diff'),
@@ -288,6 +286,13 @@ def q1(x):
 def q3(x):
     return x.quantile(0.75)
 
+def quantile82(x):
+    return x.quantile(0.82)
+def quantile90(x):
+    return x.quantile(0.90)
+def quantile95(x):
+    return x.quantile(0.95)
+
 AGGREGATIONS = ['count', 'mean', 'min', 'max', 'first', 'last', q1, 'median', q3, 'sum']
 
 def reconstruct_essay(currTextInput):
@@ -333,7 +338,7 @@ def word_feats(df):
     df['word_len'] = df['word'].apply(lambda x: len(x))
     df = df[df['word_len'] != 0]
 
-    word_agg_df = df[['id','word_len']].groupby(['id']).agg(AGGREGATIONS)
+    word_agg_df = df[['id','word_len']].groupby(['id']).agg(AGGREGATIONS + [quantile82, quantile90, quantile95])
     word_agg_df.columns = ['_'.join(x) for x in word_agg_df.columns]
     word_agg_df['id'] = word_agg_df.index
     word_agg_df = word_agg_df.reset_index(drop=True)
@@ -351,8 +356,8 @@ def sent_feats(df):
     df['sent_word_count'] = df['sent'].apply(lambda x: len(x.split(' ')))
     df = df[df.sent_len!=0].reset_index(drop=True)
 
-    sent_agg_df = pd.concat([df[['id','sent_len']].groupby(['id']).agg(AGGREGATIONS), 
-                             df[['id','sent_word_count']].groupby(['id']).agg(AGGREGATIONS)], axis=1)
+    sent_agg_df = pd.concat([df[['id','sent_len']].groupby(['id']).agg(AGGREGATIONS + [quantile90]), 
+                             df[['id','sent_word_count']].groupby(['id']).agg(AGGREGATIONS + [quantile90])], axis=1)
     sent_agg_df.columns = ['_'.join(x) for x in sent_agg_df.columns]
     sent_agg_df['id'] = sent_agg_df.index
     sent_agg_df = sent_agg_df.reset_index(drop=True)
@@ -432,7 +437,7 @@ class Runner():
     def _add_features(self, df, mode='train'):
 
         feats = dev_feats(pl.from_pandas(df))
-        feats = feats.join(dev_feats_last(pl.from_pandas(df)), on='id', how='left')
+        # feats = feats.join(dev_feats_last(pl.from_pandas(df)), on='id', how='left')
         feats = feats.to_pandas()
     
         essays = get_essay_df(df)
