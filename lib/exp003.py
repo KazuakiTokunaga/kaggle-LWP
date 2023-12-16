@@ -122,10 +122,12 @@ def count_by_values(df, colname, values, suffix=""):
 
 def dev_feats(df):
     
+    df_upper = df.filter(pl.col('down_time') < 25 * 60 * 1000)
+
     logger.info("Count by values features")
-    feats = count_by_values(df, 'activity', activities)
-    feats = feats.join(count_by_values(df, 'text_change', text_changes), on='id', how='left') 
-    feats = feats.join(count_by_values(df, 'down_event', events), on='id', how='left') 
+    feats = count_by_values(df_upper, 'activity', activities)
+    feats = feats.join(count_by_values(df_upper, 'text_change', text_changes), on='id', how='left') 
+    feats = feats.join(count_by_values(df_upper, 'down_event', events), on='id', how='left') 
 
     logger.info("Input words stats features")
     temp = df.filter((~pl.col('text_change').str.contains('=>')) & (pl.col('text_change') != 'NoChange'))
@@ -141,7 +143,7 @@ def dev_feats(df):
 
     
     logger.info("Numerical columns features")
-    temp = df.group_by("id").agg(pl.sum('action_time').name.suffix('_sum'), pl.mean(num_cols).name.suffix('_mean'), pl.std(num_cols).name.suffix('_std'),
+    temp = df_upper.group_by("id").agg(pl.sum('action_time').name.suffix('_sum'), pl.mean(num_cols).name.suffix('_mean'), pl.std(num_cols).name.suffix('_std'),
                                  pl.median(num_cols).name.suffix('_median'), pl.min(num_cols).name.suffix('_min'), pl.max(num_cols).name.suffix('_max'),
                                  pl.quantile(num_cols, 0.5).name.suffix('_quantile'))
     temp = temp.drop(["cursor_position_min", "word_count_min"])
@@ -154,7 +156,7 @@ def dev_feats(df):
 
 
     logger.info("Idle time features")
-    temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
+    temp = df_upper.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
     temp = temp.with_columns(((pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
     temp = temp.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
     temp = temp.group_by("id").agg(inter_key_largest_lantency = pl.max('time_diff'),
