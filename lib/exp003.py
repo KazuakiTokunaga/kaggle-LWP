@@ -226,7 +226,7 @@ def dev_feats_last(df):
     tmp = count_by_values(df_target, 'down_event', ['q', 'Space', 'Backspace', 'Shift', 'ArrowRight', 'Leftclick', 'ArrowLeft', '.', ','], suffix='_last')
     feats = feats.join(tmp, on='id', how='left') 
 
-    # numerical ccolumns
+    # numerical columns
     temp = df_target.group_by("id").agg(
         pl.sum('action_time').name.suffix('_sum_last'), 
         pl.mean(num_cols).name.suffix('_mean_last'), 
@@ -250,8 +250,8 @@ def dev_feats_last(df):
         total_pause_time_last = pl.sum('time_diff'),
         pauses_minus_sec_last = pl.col('time_diff').filter(pl.col('time_diff') < 0).count(),                                   
         pauses_1_sec_last = pl.col('time_diff').filter((pl.col('time_diff') > 1) & (pl.col('time_diff') < 1.5)).count(),
-        pauses_10_sec_last = pl.col('time_diff').filter(pl.col('time_diff') > 3).count(),
-        pauses_30_sec_last = pl.col('time_diff').filter(pl.col('time_diff') > 3).count()
+        pauses_10_sec_last = pl.col('time_diff').filter(pl.col('time_diff') > 10).count(),
+        pauses_30_sec_last = pl.col('time_diff').filter(pl.col('time_diff') > 30).count()
     )
     feats = feats.join(temp, on='id', how='left') 
 
