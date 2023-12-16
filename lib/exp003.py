@@ -579,18 +579,22 @@ class Runner():
                 logger.info('--------- Retrain LightGBM with selected features. ---------')
                 self._train_fold_seed(mode='second', split_id=split_id)
 
-        if RCFG.select_feature:
-            self.final_score = np.mean(list(self.second_cvscore.values()))
-        else:
-            self.final_score = np.mean(list(self.first_cvscore.values()))
-        logger.info(f'Final CV Score: {self.final_score}')
+        oof_column = [c for c in self.oof_valid_preds_df.columns if c.startswith('oof')]
+        self.oof_valid_preds_df['mean_oof'] = self.oof_valid_preds_df[oof_column].mean(axis=1)
+        self.oof_valid_preds_df = self.oof_valid_preds_df.merge(run.train_scores, on='id')
+        self.oof_valid_preds_df['se'] = np.round((self.oof_valid_preds_df['mean_oof'] - self.oof_valid_preds_df['score']) ** 2, 5)
+        self.final_score = self.oof_valid_preds_df['se'].mean() ** 0.5
+
+        score1 = np.mean(list(self.second_cvscore.values())) if RCFG.select_feature else np.mean(list(self.first_cvscore.values()))
+        self.logger.info(f'final cv score (old): ', score1)
+        self.logger.info(f'final cv score (new1): {self.final_score}')
+        self.logger.info(f"final cv score (new2): {metrics.mean_squared_error(self.oof_valid_preds_df['score'], self.oof_valid_preds_df['mean_oof'], squared=False)}")
+        self.oof_valid_preds_df.to_csv(f'{ENV.output_dir}oof_valid_preds.csv', index=False)
 
         self.feature_importance_df.to_csv(f'{ENV.output_dir}feature_importance.csv', index=False)
         with open(f'{ENV.output_dir}models_dict.pickle', 'wb') as f:
             logger.info(f'save models_dict to {ENV.output_dir}models_dict.pickle')
             pickle.dump(self.models_dict, f)
-
-        self.oof_valid_preds_df.to_csv(f'{ENV.output_dir}oof_valid_preds.csv', index=False)
 
     def write_sheet(self, ):
         logger.info('Write scores to google sheet.')
