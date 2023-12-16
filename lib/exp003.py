@@ -227,10 +227,15 @@ def dev_feats_last(df):
     feats = feats.join(tmp, on='id', how='left') 
 
     # numerical ccolumns
-    temp = df_target.group_by("id").agg(pl.sum('action_time').name.suffix('_sum'), pl.mean(num_cols).name.suffix('_mean'), pl.std(num_cols).name.suffix('_std'),
-                                 pl.median(num_cols).name.suffix('_median'), pl.min(num_cols).name.suffix('_min'), pl.max(num_cols).name.suffix('_max'),
-                                 pl.quantile(num_cols, 0.5).name.suffix('_quantile'))
-    temp = temp.drop(["cursor_position_min", "word_count_min"])
+    temp = df_target.group_by("id").agg(
+        pl.sum('action_time').name.suffix('_sum_last'), 
+        pl.mean(num_cols).name.suffix('_mean_last'), 
+        pl.std(num_cols).name.suffix('_std_last'),
+        pl.median(num_cols).name.suffix('_median_last'), 
+        pl.min(num_cols).name.suffix('_min_last'), 
+        pl.max(num_cols).name.suffix('_max_last'),
+        pl.quantile(num_cols, 0.5).name.suffix('_quantile_last')
+    )
     feats = feats.join(temp, on='id', how='left') 
 
     # idle
