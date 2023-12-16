@@ -586,9 +586,9 @@ class Runner():
         self.final_score = self.oof_valid_preds_df['se'].mean() ** 0.5
 
         score1 = np.mean(list(self.second_cvscore.values())) if RCFG.select_feature else np.mean(list(self.first_cvscore.values()))
-        self.logger.info(f'final cv score (old): ', score1)
-        self.logger.info(f'final cv score (new1): {self.final_score}')
-        self.logger.info(f"final cv score (new2): {metrics.mean_squared_error(self.oof_valid_preds_df['score'], self.oof_valid_preds_df['mean_oof'], squared=False)}")
+        logger.info(f'final cv score (old): ', score1)
+        logger.info(f'final cv score (new1): {self.final_score}')
+        logger.info(f"final cv score (new2): {metrics.mean_squared_error(self.oof_valid_preds_df['score'], self.oof_valid_preds_df['mean_oof'], squared=False)}")
         self.oof_valid_preds_df.to_csv(f'{ENV.output_dir}oof_valid_preds.csv', index=False)
 
         self.feature_importance_df.to_csv(f'{ENV.output_dir}feature_importance.csv', index=False)
