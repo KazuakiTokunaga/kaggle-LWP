@@ -57,6 +57,7 @@ class RCFG:
     use_random_features = False
     threshold_random_features = 15
     add_split_features = False
+    exclude_outlier = False
     lgbm_params = {
         "objective": "regression",
         "metric": "rmse", 
@@ -473,6 +474,16 @@ class Runner():
             logger.info('Preprocess train data. Create features for train data.')
             train_feats = self._add_features(self.train_logs, mode='train')
             self.train_feats = train_feats.merge(self.train_scores, on='id', how='left')
+
+            if RCFG.exclude_outlier:
+                logger.info('Exclude outlier ids.')
+                exclude_ids = [
+                    'aac5ac07', 'a04a32c3', '69916fc0', '68df1430', '1fbedb17', '3402f8b4',
+                    '2717fdef', 'b73648cf', 'e86a132d', '2f935a5c', 'e817ec7a', '156afd16',
+                    '66fed026', 'e74a7639'
+                ]
+                self.train_feats = self.train_feats[~self.train_feats['id'].isin(exclude_ids)]
+
             self.train_feats.to_csv(f'{ENV.output_dir}train_feats.csv', index=False)
         else:
             logger.info(f'Load train data from {ENV.feature_dir}train_feats.csv.')
