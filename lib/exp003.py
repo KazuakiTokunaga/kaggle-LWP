@@ -130,10 +130,7 @@ def dev_feats(df):
 
     temp = df.group_by('id').agg(
         ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==" ")).sum().alias('delete_space_cnt'),
-        ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==".")).sum().alias('delete_period_cnt'),
-        ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==",")).sum().alias('delete_comma_cnt'),
-        ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')=="\n")).sum().alias('delete_enter_cnt'),
-        ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change').is_in(["'", ";", "-", "="]))).sum().alias('delete_others_cnt'),
+        ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==",")).sum().alias('delete_comma_cnt')
     )
     feats = feats.join(temp, on='id', how='left')
     # logger.info("Input words stats features")
