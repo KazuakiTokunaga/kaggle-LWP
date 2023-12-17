@@ -129,7 +129,11 @@ def dev_feats(df):
     feats = feats.join(count_by_values(df, 'down_event', events), on='id', how='left') 
 
     temp = df.group_by('id').agg(
-        (pl.col('activity')=='Remove/Cut' & pl.col('text_change')==" ").sum().name.suffix('delete_space_cnt'),
+        ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==" ")).sum().alias('delete_space_cnt'),
+        ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==".")).sum().alias('delete_period_cnt'),
+        ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==",")).sum().alias('delete_comma_cnt'),
+        ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')=="\n")).sum().alias('delete_enter_cnt'),
+        ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change').is_in(["'", ";", "-", "="]))).sum().alias('delete_others_cnt'),
     )
     feats = feats.join(temp, on='id', how='left')
     # logger.info("Input words stats features")
@@ -154,8 +158,8 @@ def dev_feats(df):
         pl.min(num_cols).name.suffix('_min'), 
         pl.max(num_cols).name.suffix('_max'),
         pl.quantile(num_cols, 0.5).name.suffix('_quantile'),
-        # pl.col(['cursor_position', 'word_count', 'event_id']).filter(pl.col('down_time')<=20 * 60 * 1000).max().name.suffix('_max_20min'),
-        # pl.col(['cursor_position', 'word_count', 'event_id']).filter(pl.col('down_time')<=25 * 60 * 1000).max().name.suffix('_max_25min')
+        pl.col(['cursor_position', 'word_count', 'event_id']).filter(pl.col('down_time')<=20 * 60 * 1000).max().name.suffix('_max_20min'),
+        pl.col(['cursor_position', 'word_count', 'event_id']).filter(pl.col('down_time')<=25 * 60 * 1000).max().name.suffix('_max_25min')
     )
     temp = temp.drop(["cursor_position_min", "word_count_min"])
     feats = feats.join(temp, on='id', how='left') 
