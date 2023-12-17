@@ -479,7 +479,7 @@ class Runner():
                     '2717fdef', 'b73648cf', 'e86a132d', '2f935a5c', 'e817ec7a', '156afd16',
                     '66fed026', 'e74a7639'
                 ]
-                self.train_feats = self.train_feats[~self.train_feats['id'].isin(exclude_ids)]
+                self.train_feats = self.train_feats[~self.train_feats['id'].isin(exclude_ids)].reset_index(drop=True)
 
             self.train_feats.to_csv(f'{ENV.output_dir}train_feats.csv', index=False)
         else:
