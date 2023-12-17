@@ -128,6 +128,10 @@ def dev_feats(df):
     feats = feats.join(count_by_values(df, 'text_change', text_changes), on='id', how='left') 
     feats = feats.join(count_by_values(df, 'down_event', events), on='id', how='left') 
 
+    temp = df.group_by('id').agg(
+        (pl.col('activity')=='Remove/Cut' & pl.col('text_change')==" ").sum().name.suffix('delete_space_cnt'),
+    )
+    feats = feats.join(temp, on='id', how='left')
     # logger.info("Input words stats features")
     # temp = df.filter((~pl.col('text_change').str.contains('=>')) & (pl.col('text_change') != 'NoChange'))
     # temp = temp.group_by('id').agg(pl.col('text_change').str.concat('').str.extract_all(r'q+'))
