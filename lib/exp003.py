@@ -141,9 +141,16 @@ def dev_feats(df):
 
     
     logger.info("Numerical columns features")
-    temp = df.group_by("id").agg(pl.sum('action_time').name.suffix('_sum'), pl.mean(num_cols).name.suffix('_mean'), pl.std(num_cols).name.suffix('_std'),
-                                 pl.median(num_cols).name.suffix('_median'), pl.min(num_cols).name.suffix('_min'), pl.max(num_cols).name.suffix('_max'),
-                                 pl.quantile(num_cols, 0.5).name.suffix('_quantile'))
+    temp = df.group_by("id").agg(
+        pl.sum('action_time').name.suffix('_sum'), 
+        pl.mean(num_cols).name.suffix('_mean'), 
+        pl.std(num_cols).name.suffix('_std'),
+        pl.median(num_cols).name.suffix('_median'), 
+        pl.min(num_cols).name.suffix('_min'), 
+        pl.max(num_cols).name.suffix('_max'),
+        pl.quantile(num_cols, 0.5).name.suffix('_quantile'),
+        pl.col(['cursor_position', 'word_count']).filter(pl.col('down_time')<=5 * 60 * 1000).max().name.suffix('_max_5min'),
+    )
     temp = temp.drop(["cursor_position_min", "word_count_min"])
     feats = feats.join(temp, on='id', how='left') 
 
