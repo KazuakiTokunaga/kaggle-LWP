@@ -150,8 +150,8 @@ def dev_feats(df):
         pl.min(num_cols).name.suffix('_min'), 
         pl.max(num_cols).name.suffix('_max'),
         pl.quantile(num_cols, 0.5).name.suffix('_quantile'),
-        pl.col(['cursor_position', 'word_count', 'event_id']).filter(pl.col('down_time')<=20 * 60 * 1000).max().name.suffix('_max_20min'),
-        pl.col(['cursor_position', 'word_count', 'event_id']).filter(pl.col('down_time')<=25 * 60 * 1000).max().name.suffix('_max_25min')
+        # pl.col(['cursor_position', 'word_count', 'event_id']).filter(pl.col('down_time')<=20 * 60 * 1000).max().name.suffix('_max_20min'),
+        # pl.col(['cursor_position', 'word_count', 'event_id']).filter(pl.col('down_time')<=25 * 60 * 1000).max().name.suffix('_max_25min')
     )
     temp = temp.drop(["cursor_position_min", "word_count_min"])
     feats = feats.join(temp, on='id', how='left') 
