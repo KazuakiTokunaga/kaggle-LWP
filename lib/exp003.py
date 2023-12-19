@@ -73,7 +73,7 @@ class RCFG:
         "max_depth": 6, 
         "min_child_samples": 18
     },
-    use_scaling = False
+    use_scaling = False,
     scaling_features = [
         'word_len_count',
         'word_len_mean',
