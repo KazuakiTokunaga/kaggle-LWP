@@ -72,8 +72,10 @@ class RCFG:
         "num_leaves": 22, 
         "max_depth": 6, 
         "min_child_samples": 18
-    }
-    scaling_features = ['word_len_count',
+    },
+    use_scaling = False
+    scaling_features = [
+        'word_len_count',
         'word_len_mean',
         'word_len_max',
         'word_len_first',
@@ -476,8 +478,9 @@ class Runner():
         feats = feats.merge(product_to_keys(df, essays), on='id', how='left')
         feats = feats.merge(create_shortcuts(df), on='id', how='left')
 
-        logger.info('transform some features with standardscaler.')
-        feats[RCFG.scaling_features] = StandardScaler().fit_transform(feats[RCFG.scaling_features])
+        if RCFG.use_scaling:
+            logger.info('transform some features with standardscaler.')
+            feats[RCFG.scaling_features] = StandardScaler().fit_transform(feats[RCFG.scaling_features])
 
         # logger.info('Add CountVectorizer features.')
         # feats = feats.merge(get_countvectorizer_features(essays, mode=mode), on='id', how='left')
@@ -499,9 +502,8 @@ class Runner():
             if RCFG.exclude_outlier:
                 logger.info('Exclude outlier ids.')
                 exclude_ids = [
-                    'aac5ac07', 'a04a32c3', '69916fc0', '68df1430', '1fbedb17', '3402f8b4',
-                    '2717fdef', 'b73648cf', 'e86a132d', '2f935a5c', 'e817ec7a', '156afd16',
-                    '66fed026', 'e74a7639'
+                    "21bbc3f6","f58a6673","6763136d","9cdeaac5","29b7f2f6",
+                    "3e10785d","2d8a6af2","078a6196","cc995d97","f56f5478"
                 ]
                 self.train_feats = self.train_feats[~self.train_feats['id'].isin(exclude_ids)].reset_index(drop=True)
 
