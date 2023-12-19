@@ -20,7 +20,7 @@ import polars as pl
 from sklearn import metrics, model_selection, preprocessing, linear_model, ensemble, decomposition, tree
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.model_selection import StratifiedKFold
-from sklearn.preprocessing import Standardscaler
+from sklearn.preprocessing import StandardScaler
 import lightgbm as lgb
 import copy
 import datetime
@@ -477,7 +477,7 @@ class Runner():
         feats = feats.merge(create_shortcuts(df), on='id', how='left')
 
         logger.info('transform some features with standardscaler.')
-        feats[RCFG.scaling_features] = Standardscaler().fit_transform(feats[RCFG.scaling_features])
+        feats[RCFG.scaling_features] = StandardScaler().fit_transform(feats[RCFG.scaling_features])
 
         # logger.info('Add CountVectorizer features.')
         # feats = feats.merge(get_countvectorizer_features(essays, mode=mode), on='id', how='left')
