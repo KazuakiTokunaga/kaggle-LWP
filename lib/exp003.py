@@ -230,7 +230,7 @@ def dev_feats(df):
 
     # 0.3秒以内で入力/削除したストリーム
     temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
-    temp = temp.with_columns((abs(pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
+    temp = temp.with_columns(((pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
     temp = temp.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
     temp = temp.with_columns(((pl.col('activity').is_in(['Input']))&(pl.col('time_diff')<0.3)).alias('flag'))
     temp = temp.with_columns(pl.when(pl.col("flag") & pl.col("flag").is_last_distinct()).then(pl.count()).over(pl.col("flag").rle_id()).alias('P-bursts_v2'))
