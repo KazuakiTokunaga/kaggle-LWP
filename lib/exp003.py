@@ -20,6 +20,7 @@ import polars as pl
 from sklearn import metrics, model_selection, preprocessing, linear_model, ensemble, decomposition, tree
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.model_selection import StratifiedKFold
+from sklearn.preprocessing import Standardscaler
 import lightgbm as lgb
 import copy
 import datetime
@@ -72,6 +73,19 @@ class RCFG:
         "max_depth": 6, 
         "min_child_samples": 18
     }
+    scaling_features = ['word_len_count',
+        'word_len_mean',
+        'word_len_max',
+        'word_len_first',
+        'word_len_last',
+        'word_len_q1',
+        'word_len_median',
+        'word_len_q3',
+        'word_len_sum',
+        'word_len_quantile82',
+        'word_len_quantile90',
+        'word_len_quantile95'
+    ]
 
 
 num_cols = ['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']
@@ -462,8 +476,13 @@ class Runner():
         feats = feats.merge(product_to_keys(df, essays), on='id', how='left')
         feats = feats.merge(create_shortcuts(df), on='id', how='left')
 
+        logger.info('transform some features with standardscaler.')
+        feats[RCFG.scaling_features] = Standardscaler().fit_transform(feats[RCFG.scaling_features])
+
         # logger.info('Add CountVectorizer features.')
         # feats = feats.merge(get_countvectorizer_features(essays, mode=mode), on='id', how='left')
+
+        feats
 
         return feats
 
