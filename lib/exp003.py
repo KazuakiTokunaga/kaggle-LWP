@@ -164,14 +164,22 @@ def fix_data(df):
     # down_time_diffが20分以上ある時は10秒に補正する
     df_tmp = df[df['down_time_diff'] > 20 * 60 * 1000]
     target_list = df_tmp[['id', 'event_id', 'down_time_diff']].to_dict(orient='records')
-    logger.info(f'Fix down too long interval. {len(target_list)}')
+    logger.info(f'Fix too long interval. {len(target_list)}')
     for data in target_list:
         adjust = abs(data['down_time_diff']) - 10 * 1000
         idx = (df['id']==data['id']) & (df['event_id']>=data['event_id'])
         df.loc[idx, 'down_time'] -= adjust
         df.loc[idx, 'up_time'] -= adjust
     
-    # todo: 最初の時点から5分以上空いているときは1分に補正する
+    # todo: 最初の時点から20分以上空いているときは2分に補正する
+    df_tmp = df[(df['event_id']==1)&(df['down_time']>=20* 60 * 1000)]
+    target_list = df_tmp[['id', 'event_id', 'down_time']].to_dict(orient='records')
+    logger.info(f'Fix too late start. {len(target_list)}')
+    for data in target_list:
+        adjust = data['down_time'] - 2 * 60 * 1000
+        idx = (df['id']==data['id']) & (df['event_id']>=data['event_id'])
+        df.loc[idx, 'down_time'] -= adjust
+        df.loc[idx, 'up_time'] -= adjust
         
     
     return df
