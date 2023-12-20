@@ -153,7 +153,7 @@ def fix_data(df):
     df['down_time_diff'] = (df['down_time'] - df['down_time_shift1'])
 
     # down_timeが1秒以上逆転しているときは補正する
-    df_tmp = df[df['down_time_diff'] < 1 * 1000]
+    df_tmp = df[df['down_time_diff'] < -1 * 1000]
     target_list = df_tmp[['id', 'event_id', 'down_time_diff']].to_dict(orient='records')
     logger.info(f'Fix down time reversal. {len(target_list)}')
     for data in target_list:
