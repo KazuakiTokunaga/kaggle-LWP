@@ -573,12 +573,28 @@ class Runner():
                 
                 X_train, y_train = self.train_feats.iloc[train_idx][self.train_cols], self.train_feats.iloc[train_idx][target_col]
                 X_valid, y_valid = self.train_feats.iloc[valid_idx][self.train_cols], self.train_feats.iloc[valid_idx][target_col]
+                y_train_binary = (y_train<=1.5).astype('int')
+                y_valid_binary = (y_valid<=1.5).astype('int')
                 
                 params['random_state'] = seed
                 if not last: 
                     params['learning_rate'] = 0.05 
                     params['colsample_bytree'] = 0.6
-                
+
+
+                model = lgb.LGBMClassifier(**params)
+                early_stopping_callback = lgb.early_stopping(200, first_metric_only=True, verbose=False)
+                verbose_callback = lgb.log_evaluation(100)
+                model.fit(
+                    X_train, y_train_binary, eval_set=[(X_valid, y_valid_binary)],  
+                    callbacks=[early_stopping_callback, verbose_callback],
+                )
+                valid_predict = model.predict(X_valid)[0]
+                self.train_feats.loc[valid_idx, 'binary_pred'] = valid_predict
+                self.models_dict[f'binary_{split_id}_{seed_id}_{fold}'] = model
+
+                X_train, y_train = self.train_feats.iloc[train_idx][self.train_cols+['binary_pred']], self.train_feats.iloc[train_idx][target_col]
+                X_valid, y_valid = self.train_feats.iloc[valid_idx][self.train_cols+['binary_pred']], self.train_feats.iloc[valid_idx][target_col]
 
                 model = lgb.LGBMRegressor(**params)
                 early_stopping_callback = lgb.early_stopping(200, first_metric_only=True, verbose=False)
