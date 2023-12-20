@@ -525,7 +525,6 @@ class Runner():
     
     def _add_features(self, df, mode='train'):
 
-        df = fix_data(df)
         feats = dev_feats(pl.from_pandas(df))
         # feats = feats.join(dev_feats_last(pl.from_pandas(df)), on='id', how='left')
         feats = feats.to_pandas()
@@ -554,6 +553,7 @@ class Runner():
         
         if RCFG.preprocess_train:
             logger.info('Preprocess train data. Create features for train data.')
+            self.train_logs = fix_data(self.train_logs)
             train_feats = self._add_features(self.train_logs, mode='train')
             self.train_feats = train_feats.merge(self.train_scores, on='id', how='left')
 
@@ -573,6 +573,7 @@ class Runner():
         if RCFG.predict:        
             logger.info('Preprocess test data. Get essays of test data.')
             logger.info('Create features for test data.')
+            self.test_logs = fix_data(self.test_logs)
             self.test_feats = self._add_features(self.test_logs, mode='test')
 
     def _train_fold_seed(self, mode='first', split_id=0):
