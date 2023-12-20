@@ -139,9 +139,12 @@ def count_by_values(df, colname, values, suffix=""):
 
 def fix_data(df):
     
+    logger.info('Sart fix data.')
+
     # 長すぎるprocessを除外する
     cond_long_process = (df['down_event']=='Process') & (df['action_time']>=1000)
-    df = df[~cond_long_process]
+    logger.info(f'Remove long process: {sum(cond_long_process)}')
+    df = df[~cond_long_process].copy()
 
     # 準備
     df['up_time_shift1'] = df.groupby('id')['up_time'].shift(1)
@@ -152,6 +155,7 @@ def fix_data(df):
     # down_timeが1秒以上逆転しているときは補正する
     df_tmp = df[df['down_time_diff'] < 1 * 1000]
     target_list = df_tmp[['id', 'event_id', 'down_time_diff']].to_dict(orient='records')
+    logger.info(f'Fix down time reversal. {len(target_list)}')
     for data in target_list:
         idx = (df['id']==data['id']) & (df['event_id']>=data['event_id'])
         df.loc[idx, 'down_time'] += abs(data['down_time_diff'])
@@ -160,6 +164,7 @@ def fix_data(df):
     # down_time_diffが20分以上ある時は10秒に補正する
     df_tmp = df[df['down_time_diff'] > 20 * 60 * 1000]
     target_list = df_tmp[['id', 'event_id', 'down_time_diff']].to_dict(orient='records')
+    logger.info(f'Fix down too long interval. {len(target_list)}')
     for data in target_list:
         adjust = abs(data['down_time_diff']) - 10 * 1000
         idx = (df['id']==data['id']) & (df['event_id']>=data['event_id'])
