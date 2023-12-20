@@ -539,7 +539,8 @@ class Runner():
 
         oofscore = []
         target_col = ['score']
-        self.train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id', 'fold']]
+        self.train_feats['binary_pred'] = 0
+        self.train_cols = [col for col in self.train_feats.columns if col not in ['score', 'id', 'fold', 'binary_pred']]
         params = RCFG.lgbm_params.copy()
         last = False if mode == 'first' and RCFG.select_feature else True
 
@@ -563,7 +564,8 @@ class Runner():
                     else:
                         # self.train_cols = feature_df[feature_df.index <= RCFG.use_feature_rank]['feature'].tolist()
                         self.train_cols = feature_df[(~feature_df['feature'].str.contains('ngram')) | (feature_df.index <= RCFG.use_feature_rank)]['feature'].tolist()
-                        
+                    
+                    self.train_cols = [c for c in self.train_cols if c != 'binary_pred']    
                     if seed_id == 0:
                         logger.info(f'self.train_cols: {len(self.train_cols)}')
 
@@ -605,7 +607,7 @@ class Runner():
                     X_train, y_train, eval_set=[(X_valid, y_valid)],  
                     callbacks=[early_stopping_callback, verbose_callback],
                 )
-                valid_predict = model.predict(X_valid)
+                valid_predict = model.predict_proba(X_valid)
                 oof_valid_preds[valid_idx] = valid_predict
                 self.models_dict[f'{split_id}_{seed_id}_{fold}'] = model
 
@@ -663,7 +665,7 @@ class Runner():
                     model = self.models_dict[f'{split_id}_{seed_id}_{fold}']
                     model.importance_type = 'gain'
                     fold_importance_df = pd.DataFrame()
-                    fold_importance_df["feature"] = self.train_cols
+                    fold_importance_df["feature"] = self.train_cols + ['binary_pred']
                     fold_importance_df["importance"] = model.feature_importances_
                     fold_importance_df["split_id"] = split_id
                     fold_importance_df["seed_id"] = seed_id
