@@ -139,7 +139,7 @@ def count_by_values(df, colname, values, suffix=""):
 
 def fix_data(df):
     
-    logger.info('Sart fix data.')
+    logger.info('Start fix data.')
 
     # 長すぎるprocessを除外する
     cond_long_process = (df['down_event']=='Process') & (df['action_time']>=1000)
