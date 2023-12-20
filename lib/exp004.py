@@ -571,6 +571,7 @@ class Runner():
                 train_idx = self.train_feats[self.train_feats['fold'] != fold].index
                 valid_idx = self.train_feats[self.train_feats['fold'] == fold].index
                 
+                logger.info('Train binary model.')
                 X_train, y_train = self.train_feats.iloc[train_idx][self.train_cols], self.train_feats.iloc[train_idx][target_col]
                 X_valid, y_valid = self.train_feats.iloc[valid_idx][self.train_cols], self.train_feats.iloc[valid_idx][target_col]
                 y_train_binary = (y_train<=1.5).astype('int')
@@ -593,6 +594,7 @@ class Runner():
                 self.train_feats.loc[valid_idx, 'binary_pred'] = valid_predict
                 self.models_dict[f'binary_{split_id}_{seed_id}_{fold}'] = model
 
+                logger.info('Train regression model.')
                 X_train, y_train = self.train_feats.iloc[train_idx][self.train_cols+['binary_pred']], self.train_feats.iloc[train_idx][target_col]
                 X_valid, y_valid = self.train_feats.iloc[valid_idx][self.train_cols+['binary_pred']], self.train_feats.iloc[valid_idx][target_col]
 
