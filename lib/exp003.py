@@ -137,6 +137,42 @@ def count_by_values(df, colname, values, suffix=""):
     return fts
 
 
+def fix_data(df):
+    
+    # 長すぎるprocessを除外する
+    cond_long_process = (df['down_event']=='Process') & (df['action_time']>=1000)
+    df = df[~cond_long_process]
+
+    # 準備
+    df['up_time_shift1'] = df.groupby('id')['up_time'].shift(1)
+    df['down_time_shift1'] = df.groupby('id')['down_time'].shift(1)
+    df['next_action_time_diff'] = (df['down_time'] - df['up_time_shift1'])
+    df['down_time_diff'] = (df['down_time'] - df['down_time_shift1'])
+
+    # down_timeが1秒以上逆転しているときは補正する
+    df_tmp = df[df['down_time_diff'] < 1 * 1000]
+    target_list = df_tmp[['id', 'event_id', 'down_time_diff']].to_dict(orient='records')
+    for data in target_list:
+        idx = (df['id']==data['id']) & (df['event_id']>=data['event_id'])
+        df.loc[idx, 'down_time'] += abs(data['down_time_diff'])
+        df.loc[idx, 'up_time'] += abs(data['down_time_diff'])
+
+    # down_time_diffが20分以上ある時は10秒に補正する
+    df_tmp = df[df['down_time_diff'] > 20 * 60 * 1000]
+    target_list = df_tmp[['id', 'event_id', 'down_time_diff']].to_dict(orient='records')
+    for data in target_list:
+        adjust = abs(data['down_time_diff']) - 10 * 1000
+        idx = (df['id']==data['id']) & (df['event_id']>=data['event_id'])
+        df.loc[idx, 'down_time'] -= adjust
+        df.loc[idx, 'up_time'] -= adjust
+    
+    # todo: 最初の時点から5分以上空いているときは1分に補正する
+        
+    
+    return df
+        
+
+
 def dev_feats(df):
 
     logger.info("Count by values features")
@@ -484,6 +520,7 @@ class Runner():
     
     def _add_features(self, df, mode='train'):
 
+        df = fix_data(df)
         feats = dev_feats(pl.from_pandas(df))
         # feats = feats.join(dev_feats_last(pl.from_pandas(df)), on='id', how='left')
         feats = feats.to_pandas()
@@ -502,8 +539,6 @@ class Runner():
 
         # logger.info('Add CountVectorizer features.')
         # feats = feats.merge(get_countvectorizer_features(essays, mode=mode), on='id', how='left')
-
-        feats
 
         return feats
 
