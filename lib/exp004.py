@@ -592,7 +592,7 @@ class Runner():
                     X_train, y_train_binary, eval_set=[(X_valid, y_valid_binary)],  
                     callbacks=[early_stopping_callback, verbose_callback],
                 )
-                valid_predict = model.predict(X_valid)[0]
+                valid_predict = model.predict_proba(X_valid)[0]
                 self.train_feats.loc[valid_idx, 'binary_pred'] = valid_predict
                 self.models_dict[f'binary_{split_id}_{seed_id}_{fold}'] = model
 
@@ -607,7 +607,7 @@ class Runner():
                     X_train, y_train, eval_set=[(X_valid, y_valid)],  
                     callbacks=[early_stopping_callback, verbose_callback],
                 )
-                valid_predict = model.predict_proba(X_valid)
+                valid_predict = model.predict(X_valid)
                 oof_valid_preds[valid_idx] = valid_predict
                 self.models_dict[f'{split_id}_{seed_id}_{fold}'] = model
 
