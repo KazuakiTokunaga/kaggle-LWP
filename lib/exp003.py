@@ -615,8 +615,8 @@ class Runner():
                         self.train_cols = feature_df[(~feature_df['feature'].str.contains('ngram')) | (feature_df.index <= dummy_random_idx)]['feature'].tolist()
                         self.train_cols = [c for c in self.train_cols if not c.startswith('dummy_random')]
                     else:
-                        # self.train_cols = feature_df[feature_df.index <= RCFG.use_feature_rank]['feature'].tolist()
-                        self.train_cols = feature_df[(~feature_df['feature'].str.contains('ngram')) | (feature_df.index <= RCFG.use_feature_rank)]['feature'].tolist()
+                        self.train_cols = feature_df[feature_df.index <= RCFG.use_feature_rank]['feature'].tolist()
+                        # self.train_cols = feature_df[(~feature_df['feature'].str.contains('ngram')) | (feature_df.index <= RCFG.use_feature_rank)]['feature'].tolist()
                         
                     if seed_id == 0:
                         logger.info(f'self.train_cols: {len(self.train_cols)}')
