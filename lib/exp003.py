@@ -634,7 +634,7 @@ class Runner():
                 
                 weight = None
                 if RCFG.use_weight:
-                    weight = y_train['score'].apply(lambda x: 2 if x <= 1.5 else 1)
+                    weight = y_train['score'].apply(lambda x: 1.5 if x <= 2.0 else 1)
 
                 model = lgb.LGBMRegressor(**params)
                 early_stopping_callback = lgb.early_stopping(200, first_metric_only=True, verbose=False)
