@@ -88,6 +88,8 @@ class RCFG:
         'word_len_quantile90',
         'word_len_quantile95'
     ]
+    fix_data = False
+    use_weight = False
 
 
 num_cols = ['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']
@@ -561,7 +563,8 @@ class Runner():
         
         if RCFG.preprocess_train:
             logger.info('Preprocess train data. Create features for train data.')
-            self.train_logs = fix_data(self.train_logs)
+            if RCFG.fix_data:  
+                self.train_logs = fix_data(self.train_logs)
             train_feats = self._add_features(self.train_logs, mode='train')
             self.train_feats = train_feats.merge(self.train_scores, on='id', how='left')
 
@@ -581,7 +584,8 @@ class Runner():
         if RCFG.predict:        
             logger.info('Preprocess test data. Get essays of test data.')
             logger.info('Create features for test data.')
-            self.test_logs = fix_data(self.test_logs)
+            if RCFG.fix_data:  
+                self.test_logs = fix_data(self.test_logs)
             self.test_feats = self._add_features(self.test_logs, mode='test')
 
     def _train_fold_seed(self, mode='first', split_id=0):
@@ -628,6 +632,9 @@ class Runner():
                     params['learning_rate'] = 0.05 
                     params['colsample_bytree'] = 0.6
                 
+                weight = None
+                if RCFG.use_weight:
+                    weight = y_train.apply(lambda x: 2 if x <= 1.5 else 1)
 
                 model = lgb.LGBMRegressor(**params)
                 early_stopping_callback = lgb.early_stopping(200, first_metric_only=True, verbose=False)
@@ -635,6 +642,7 @@ class Runner():
                 model.fit(
                     X_train, y_train, eval_set=[(X_valid, y_valid)],  
                     callbacks=[early_stopping_callback, verbose_callback],
+                    weight = weight
                 )
                 valid_predict = model.predict(X_valid)
                 oof_valid_preds[valid_idx] = valid_predict
