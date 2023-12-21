@@ -104,7 +104,7 @@ special_char_to_text = {
     ')': 'right_parenthesis', '_': 'underscore',
 }
 
-def get_countvectorizer_features(df, ngram=(1,3), thre=0.03, mode='train'):
+def get_countvectorizer_features(df, ngram=(2,3), thre=0.03, mode='train'):
 
     if mode == 'train':
         count_vectorizer = CountVectorizer(ngram_range=ngram, min_df=thre)
