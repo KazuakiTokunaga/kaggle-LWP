@@ -200,17 +200,18 @@ def dev_feats(df):
         ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==",")).sum().alias('delete_comma_cnt')
     )
     feats = feats.join(temp, on='id', how='left')
-    # logger.info("Input words stats features")
-    # temp = df.filter((~pl.col('text_change').str.contains('=>')) & (pl.col('text_change') != 'NoChange'))
-    # temp = temp.group_by('id').agg(pl.col('text_change').str.concat('').str.extract_all(r'q+'))
-    # temp = temp.with_columns(input_word_count = pl.col('text_change').list.len(),
-    #                          input_word_length_mean = pl.col('text_change').map_elements(lambda x: np.mean([len(i) for i in x] if len(x) > 0 else 0)),
-    #                          input_word_length_max = pl.col('text_change').map_elements(lambda x: np.max([len(i) for i in x] if len(x) > 0 else 0)),
-    #                          input_word_length_std = pl.col('text_change').map_elements(lambda x: np.std([len(i) for i in x] if len(x) > 0 else 0)),
-    #                          input_word_length_median = pl.col('text_change').map_elements(lambda x: np.median([len(i) for i in x] if len(x) > 0 else 0)),
-    #                          input_word_length_skew = pl.col('text_change').map_elements(lambda x: skew([len(i) for i in x] if len(x) > 0 else 0)))
-    # temp = temp.drop('text_change')
-    # feats = feats.join(temp, on='id', how='left') 
+
+    logger.info("Input words stats features")
+    temp = df.filter((~pl.col('text_change').str.contains('=>')) & (pl.col('text_change') != 'NoChange'))
+    temp = temp.group_by('id').agg(pl.col('text_change').str.concat('').str.extract_all(r'q+'))
+    temp = temp.with_columns(input_word_count = pl.col('text_change').list.len(),
+                             input_word_length_mean = pl.col('text_change').map_elements(lambda x: np.mean([len(i) for i in x] if len(x) > 0 else 0)),
+                             input_word_length_max = pl.col('text_change').map_elements(lambda x: np.max([len(i) for i in x] if len(x) > 0 else 0)),
+                             input_word_length_std = pl.col('text_change').map_elements(lambda x: np.std([len(i) for i in x] if len(x) > 0 else 0)),
+                             input_word_length_median = pl.col('text_change').map_elements(lambda x: np.median([len(i) for i in x] if len(x) > 0 else 0)),
+                             input_word_length_skew = pl.col('text_change').map_elements(lambda x: skew([len(i) for i in x] if len(x) > 0 else 0)))
+    temp = temp.drop('text_change')
+    feats = feats.join(temp, on='id', how='left') 
 
     
     logger.info("Numerical columns features")
