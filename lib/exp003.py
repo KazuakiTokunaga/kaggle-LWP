@@ -642,7 +642,7 @@ class Runner():
                 model.fit(
                     X_train, y_train, eval_set=[(X_valid, y_valid)],  
                     callbacks=[early_stopping_callback, verbose_callback],
-                    weight = weight
+                    class_weight = weight
                 )
                 valid_predict = model.predict(X_valid)
                 oof_valid_preds[valid_idx] = valid_predict
