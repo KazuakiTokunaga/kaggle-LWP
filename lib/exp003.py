@@ -473,30 +473,30 @@ def sent_feats_v2(df, mode='train'):
     df_first_result = pd.DataFrame(data=matrix, index=df_train_index, columns=feature_names).add_suffix('_first_word').reset_index()
 
 
-    df['second'] = df['sent'].apply(lambda x: x.split()[1] if len(x.split()) > 1 else '')
-    df['second'] = df['second'].apply(lambda x: 'SecondOneLetter' if x=='q' else x)
-    df['first_two_words'] = df['first'] + 'To' + df['second']
+    # df['second'] = df['sent'].apply(lambda x: x.split()[1] if len(x.split()) > 1 else '')
+    # df['second'] = df['second'].apply(lambda x: 'SecondOneLetter' if x=='q' else x)
+    # df['first_two_words'] = df['first'] + 'To' + df['second']
 
-    df_first_two_words = df[(df['first']!='')&(df['second']!='')].groupby('id')['first_two_words'].apply(list).reset_index()
-    df_first_two_words['first_two_words'] = df_first_two_words['first_two_words'].apply(lambda x: ' '.join(x))
+    # df_first_two_words = df[(df['first']!='')&(df['second']!='')].groupby('id')['first_two_words'].apply(list).reset_index()
+    # df_first_two_words['first_two_words'] = df_first_two_words['first_two_words'].apply(lambda x: ' '.join(x))
 
-    df_train_index = pd.Index(df_first_two_words['id'].unique(), name = 'id')
-    if mode == 'train':
-        count_vectorizer = CountVectorizer(ngram_range=(1,1), min_df=0.1)
-        count_vectorizer.fit(df_first_two_words['first_two_words'])
+    # df_train_index = pd.Index(df_first_two_words['id'].unique(), name = 'id')
+    # if mode == 'train':
+    #     count_vectorizer = CountVectorizer(ngram_range=(1,1), min_df=0.1)
+    #     count_vectorizer.fit(df_first_two_words['first_two_words'])
 
-        with open(f'{ENV.output_dir}count_vectorizer_first_two_words.pickle', mode='wb') as f:
-            pickle.dump(count_vectorizer, f)
-    else:
-        with open(f'{ENV.model_dir}count_vectorizer_first_two_words.pickle', mode='rb') as f:
-            count_vectorizer = pickle.load(f)
+    #     with open(f'{ENV.output_dir}count_vectorizer_first_two_words.pickle', mode='wb') as f:
+    #         pickle.dump(count_vectorizer, f)
+    # else:
+    #     with open(f'{ENV.model_dir}count_vectorizer_first_two_words.pickle', mode='rb') as f:
+    #         count_vectorizer = pickle.load(f)
 
-    matrix = count_vectorizer.transform(df_first_two_words['first_two_words']).todense()
-    feature_names = count_vectorizer.get_feature_names_out()
-    df_first_two_result = pd.DataFrame(data=matrix, index=df_train_index, columns=feature_names).add_suffix('_first_two_words').reset_index()
+    # matrix = count_vectorizer.transform(df_first_two_words['first_two_words']).todense()
+    # feature_names = count_vectorizer.get_feature_names_out()
+    # df_first_two_result = pd.DataFrame(data=matrix, index=df_train_index, columns=feature_names).add_suffix('_first_two_words').reset_index()
 
     df_result = df_base.merge(df_first_result, on='id', how='left')
-    df_result = df_result.merge(df_first_two_result, on='id', how='left')
+    # df_result = df_result.merge(df_first_two_result, on='id', how='left')
 
     return df_result
 
@@ -585,8 +585,8 @@ class Runner():
         feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
         feats = feats.merge(product_to_keys(df, essays), on='id', how='left')
         feats = feats.merge(create_shortcuts(df), on='id', how='left')
-        feats = feats.merge(word_apotrophe_feats(essays), on='id', how='left')
-        # feats = feats.merge(sent_feats_v2(essays, mode=mode), on='id', how='left')
+        # feats = feats.merge(word_apotrophe_feats(essays), on='id', how='left')
+        feats = feats.merge(sent_feats_v2(essays, mode=mode), on='id', how='left')
 
         if RCFG.use_scaling:
             logger.info('transform some features with standardscaler.')
