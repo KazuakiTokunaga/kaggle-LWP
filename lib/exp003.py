@@ -456,7 +456,7 @@ def sent_feats_v2(df):
     df_first_word['first'] = df_first_word['first'].apply(lambda x: ' '.join(x))
 
     df_train_index = pd.Index(df_first_word['id'].unique(), name = 'id')
-    count_vectorizer = CountVectorizer(ngram_range=(1,1), min_df=0.05)
+    count_vectorizer = CountVectorizer(ngram_range=(1,1), min_df=0.1)
     matrix = count_vectorizer.fit_transform(df_first_word['first']).todense()
     feature_names = count_vectorizer.get_feature_names_out()
     df_first_result = pd.DataFrame(data=matrix, index=df_train_index, columns=feature_names).add_suffix('_first_word').reset_index()
@@ -470,7 +470,7 @@ def sent_feats_v2(df):
     df_first_two_words['first_two_words'] = df_first_two_words['first_two_words'].apply(lambda x: ' '.join(x))
 
     df_train_index = pd.Index(df_first_two_words['id'].unique(), name = 'id')
-    count_vectorizer = CountVectorizer(ngram_range=(1,1), min_df=0.05)
+    count_vectorizer = CountVectorizer(ngram_range=(1,1), min_df=0.1)
     matrix = count_vectorizer.fit_transform(df_first_two_words['first_two_words']).todense()
     feature_names = count_vectorizer.get_feature_names_out()
     df_first_two_result = pd.DataFrame(data=matrix, index=df_train_index, columns=feature_names).add_suffix('_first_two_words').reset_index()
