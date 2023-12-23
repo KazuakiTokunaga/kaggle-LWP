@@ -465,7 +465,6 @@ def sent_feats_v2(df, mode='train'):
         with open(f'{ENV.output_dir}count_vectorizer_first_word.pickle', mode='wb') as f:
             pickle.dump(count_vectorizer, f)
     else:
-        logger.info(f'Load CountVectorizer from {ENV.model_dir}.')
         with open(f'{ENV.model_dir}count_vectorizer_first_word.pickle', mode='rb') as f:
             count_vectorizer = pickle.load(f)
 
@@ -586,8 +585,8 @@ class Runner():
         feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
         feats = feats.merge(product_to_keys(df, essays), on='id', how='left')
         feats = feats.merge(create_shortcuts(df), on='id', how='left')
-        # feats = feats.merge(word_apotrophe_feats(essays), on='id', how='left')
-        feats = feats.merge(sent_feats_v2(essays, mode=mode), on='id', how='left')
+        feats = feats.merge(word_apotrophe_feats(essays), on='id', how='left')
+        # feats = feats.merge(sent_feats_v2(essays, mode=mode), on='id', how='left')
 
         if RCFG.use_scaling:
             logger.info('transform some features with standardscaler.')
