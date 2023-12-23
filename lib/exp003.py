@@ -557,10 +557,13 @@ class Runner():
         # feats = feats.join(dev_feats_last(pl.from_pandas(df)), on='id', how='left')
         feats = feats.to_pandas()
     
+        logger.info('Add essay features.')
         essays = get_essay_df(df)
         feats = feats.merge(word_feats(essays), on='id', how='left')
         feats = feats.merge(sent_feats(essays), on='id', how='left')
         feats = feats.merge(parag_feats(essays), on='id', how='left')
+
+        logger.info('Add other features.')
         feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
         feats = feats.merge(product_to_keys(df, essays), on='id', how='left')
         feats = feats.merge(create_shortcuts(df), on='id', how='left')
