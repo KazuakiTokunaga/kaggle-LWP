@@ -442,7 +442,7 @@ def word_apotrophe_feats(df):
     
     return df_result
 
-def sent_feats_v2(df):
+def sent_feats_v2(df, mode='train'):
     logger.info('Add Features based on the first several words in a sentence.')
 
     df_base = pd.DataFrame(df['id'].unique(), columns=['id'])
@@ -458,8 +458,18 @@ def sent_feats_v2(df):
     df_first_word['first'] = df_first_word['first'].apply(lambda x: ' '.join(x))
 
     df_train_index = pd.Index(df_first_word['id'].unique(), name = 'id')
-    count_vectorizer = CountVectorizer(ngram_range=(1,1), min_df=0.1)
-    matrix = count_vectorizer.fit_transform(df_first_word['first']).todense()
+    if mode == 'train':
+        count_vectorizer = CountVectorizer(ngram_range=(1,1), min_df=0.1)
+        count_vectorizer.fit(df_first_word['first'])
+
+        with open(f'{ENV.output_dir}count_vectorizer_first_word.pickle', mode='wb') as f:
+            pickle.dump(count_vectorizer, f)
+    else:
+        logger.info(f'Load CountVectorizer from {ENV.model_dir}.')
+        with open(f'{ENV.model_dir}count_vectorizer_first_word.pickle', mode='rb') as f:
+            count_vectorizer = pickle.load(f)
+
+    matrix = count_vectorizer.transform(df_first_word['first']).todense()
     feature_names = count_vectorizer.get_feature_names_out()
     df_first_result = pd.DataFrame(data=matrix, index=df_train_index, columns=feature_names).add_suffix('_first_word').reset_index()
 
@@ -472,8 +482,17 @@ def sent_feats_v2(df):
     df_first_two_words['first_two_words'] = df_first_two_words['first_two_words'].apply(lambda x: ' '.join(x))
 
     df_train_index = pd.Index(df_first_two_words['id'].unique(), name = 'id')
-    count_vectorizer = CountVectorizer(ngram_range=(1,1), min_df=0.1)
-    matrix = count_vectorizer.fit_transform(df_first_two_words['first_two_words']).todense()
+    if mode == 'train':
+        count_vectorizer = CountVectorizer(ngram_range=(1,1), min_df=0.1)
+        count_vectorizer.fit(df_first_two_words['first_two_words'])
+
+        with open(f'{ENV.output_dir}count_vectorizer_first_two_words.pickle', mode='wb') as f:
+            pickle.dump(count_vectorizer, f)
+    else:
+        with open(f'{ENV.model_dir}count_vectorizer_first_two_words.pickle', mode='rb') as f:
+            count_vectorizer = pickle.load(f)
+
+    matrix = count_vectorizer.transform(df_first_two_words['first_two_words']).todense()
     feature_names = count_vectorizer.get_feature_names_out()
     df_first_two_result = pd.DataFrame(data=matrix, index=df_train_index, columns=feature_names).add_suffix('_first_two_words').reset_index()
 
@@ -568,7 +587,7 @@ class Runner():
         feats = feats.merge(product_to_keys(df, essays), on='id', how='left')
         feats = feats.merge(create_shortcuts(df), on='id', how='left')
         # feats = feats.merge(word_apotrophe_feats(essays), on='id', how='left')
-        feats = feats.merge(sent_feats_v2(essays), on='id', how='left')
+        feats = feats.merge(sent_feats_v2(essays, mode=mode), on='id', how='left')
 
         if RCFG.use_scaling:
             logger.info('transform some features with standardscaler.')
