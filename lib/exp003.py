@@ -431,6 +431,7 @@ def word_apotrophe_feats(df):
 
     # apostrophを含むwordを正規表現で抽出
     df = df[df['word'].str.contains("'")]
+    df['word'] = df['word'].str.replace("'", 'Apos')
     df_apos = df.groupby('id')['word'].apply(list).reset_index()
     df_apos['word'] = df_apos['word'].apply(lambda x: ' '.join(x))
 
@@ -438,7 +439,7 @@ def word_apotrophe_feats(df):
     count_vectorizer = CountVectorizer(ngram_range=(1,1), min_df=0.05)
     matrix = count_vectorizer.fit_transform(df_apos['word']).todense()
     feature_names = count_vectorizer.get_feature_names_out()
-    df_result = pd.DataFrame(data=matrix, index=df_train_index, columns=feature_names).add_suffix('_word').reset_index()
+    df_result = pd.DataFrame(data=matrix, index=df_train_index, columns=feature_names).add_suffix('_word_apostroph').reset_index()
     
     return df_result
 
