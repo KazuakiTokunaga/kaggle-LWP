@@ -443,11 +443,13 @@ def word_apotrophe_feats(df):
     return df_result
 
 def sent_feats_v2(df):
+    logger.info('Add Features based on the first several words in a sentence.')
+
     df_base = pd.DataFrame(df['id'].unique(), columns=['id'])
 
     df['sent'] = df['essay'].apply(lambda x: re.split('\\.|\\?|\\!',x))
     df = df.explode('sent')
-    df['sent'] = df['sent'].apply(lambda x: x.replace('\n','').strip()).str.replace("'", 'Apos').str_replace(",", 'comma')
+    df['sent'] = df['sent'].apply(lambda x: x.replace('\n','').strip()).str.replace("'", 'Apos').str.replace(",", 'comma')
 
     df['first'] = df['sent'].apply(lambda x: x.split()[0] if len(x.split()) > 0 else '')
     df['first'] = df['first'].apply(lambda x: 'FirstOneLetter' if x=='q' else x)
@@ -479,14 +481,6 @@ def sent_feats_v2(df):
     df_result = df_result.merge(df_first_two_result, on='id', how='left')
 
     return df_result
-
-
-
-
-
-
-
-
 
 
 def parag_feats(df):
