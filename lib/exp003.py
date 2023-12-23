@@ -318,47 +318,6 @@ def dev_feats(df):
     return feats
 
 
-def dev_feats_last(df):
-
-    df_target = df.filter(pl.col('down_time')>= 25 * 60 * 1000)
-
-    # count
-    feats = count_by_values(df_target, 'activity', ['Input', 'Remove/Cut', 'Nonproduction'], suffix='_last')
-    tmp = count_by_values(df_target, 'down_event', ['q', 'Space', 'Backspace', 'Shift', 'ArrowRight', 'Leftclick', 'ArrowLeft', '.', ','], suffix='_last')
-    feats = feats.join(tmp, on='id', how='left') 
-
-    # numerical columns
-    temp = df_target.group_by("id").agg(
-        pl.sum('action_time').name.suffix('_sum_last'), 
-        pl.mean(num_cols).name.suffix('_mean_last'), 
-        pl.std(num_cols).name.suffix('_std_last'),
-        pl.median(num_cols).name.suffix('_median_last'), 
-        pl.min(num_cols).name.suffix('_min_last'), 
-        pl.max(num_cols).name.suffix('_max_last'),
-        pl.quantile(num_cols, 0.5).name.suffix('_quantile_last')
-    )
-    feats = feats.join(temp, on='id', how='left') 
-
-    # idle
-    temp = df_target.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
-    temp = temp.with_columns(((pl.col('down_time') - pl.col('up_time_lagged')) / 1000).fill_null(0).alias('time_diff'))
-    temp = temp.filter(pl.col('activity').is_in(['Input', 'Remove/Cut']))
-    temp = temp.group_by("id").agg(
-        inter_key_largest_lantency_last = pl.max('time_diff'),
-        inter_key_median_lantency_last = pl.median('time_diff'),
-        mean_pause_time_last = pl.mean('time_diff'),
-        std_pause_time_last = pl.std('time_diff'),
-        total_pause_time_last = pl.sum('time_diff'),
-        pauses_minus_sec_last = pl.col('time_diff').filter(pl.col('time_diff') < 0).count(),                                   
-        pauses_1_sec_last = pl.col('time_diff').filter((pl.col('time_diff') > 1) & (pl.col('time_diff') < 1.5)).count(),
-        pauses_10_sec_last = pl.col('time_diff').filter(pl.col('time_diff') > 10).count(),
-        pauses_30_sec_last = pl.col('time_diff').filter(pl.col('time_diff') > 30).count()
-    )
-    feats = feats.join(temp, on='id', how='left') 
-
-    return feats
-
-
 def create_shortcuts(df):
 
     event_df = df[['id', 'event_id', 'down_event']].copy(deep=True)
@@ -466,6 +425,69 @@ def sent_feats(df):
     sent_agg_df = sent_agg_df.rename(columns={"sent_len_count":"sent_count"})
     return sent_agg_df
 
+def word_apotrophe_feats(df):
+    df['word'] = df['essay'].apply(lambda x: re.split(' |\\n|\\.|\\?|\\!',x))
+    df = df.explode('word')
+
+    # apostrophを含むwordを正規表現で抽出
+    df = df[df['word'].str.contains("'")]
+    df_apos = df.groupby('id')['word'].apply(list).reset_index()
+    df_apos['word'] = df_apos['word'].apply(lambda x: ' '.join(x))
+
+    df_train_index = pd.Index(df_apos['id'].unique(), name = 'id')
+    count_vectorizer = CountVectorizer(ngram_range=(1,1), min_df=0.05)
+    matrix = count_vectorizer.fit_transform(df_apos['word']).todense()
+    feature_names = count_vectorizer.get_feature_names_out()
+    df_result = pd.DataFrame(data=matrix, index=df_train_index, columns=feature_names).add_suffix('_word').reset_index()
+    
+    return df_result
+
+def sent_feats_v2(df):
+    df_base = pd.DataFrame(df['id'].unique(), columns=['id'])
+
+    df['sent'] = df['essay'].apply(lambda x: re.split('\\.|\\?|\\!',x))
+    df = df.explode('sent')
+    df['sent'] = df['sent'].apply(lambda x: x.replace('\n','').strip()).str.replace("'", 'Apos').str_replace(",", 'comma')
+
+    df['first'] = df['sent'].apply(lambda x: x.split()[0] if len(x.split()) > 0 else '')
+    df['first'] = df['first'].apply(lambda x: 'FirstOneLetter' if x=='q' else x)
+
+    df_first_word = df[df['first']!=''].groupby('id')['first'].apply(list).reset_index()
+    df_first_word['first'] = df_first_word['first'].apply(lambda x: ' '.join(x))
+
+    df_train_index = pd.Index(df_first_word['id'].unique(), name = 'id')
+    count_vectorizer = CountVectorizer(ngram_range=(1,1), min_df=0.05)
+    matrix = count_vectorizer.fit_transform(df_first_word['first']).todense()
+    feature_names = count_vectorizer.get_feature_names_out()
+    df_first_result = pd.DataFrame(data=matrix, index=df_train_index, columns=feature_names).add_suffix('_first_word').reset_index()
+
+
+    df['second'] = df['sent'].apply(lambda x: x.split()[1] if len(x.split()) > 1 else '')
+    df['second'] = df['second'].apply(lambda x: 'SecondOneLetter' if x=='q' else x)
+    df['first_two_words'] = df['first'] + 'To' + df['second']
+
+    df_first_two_words = df[(df['first']!='')&(df['second']!='')].groupby('id')['first_two_words'].apply(list).reset_index()
+    df_first_two_words['first_two_words'] = df_first_two_words['first_two_words'].apply(lambda x: ' '.join(x))
+
+    df_train_index = pd.Index(df_first_two_words['id'].unique(), name = 'id')
+    count_vectorizer = CountVectorizer(ngram_range=(1,1), min_df=0.05)
+    matrix = count_vectorizer.fit_transform(df_first_two_words['first_two_words']).todense()
+    feature_names = count_vectorizer.get_feature_names_out()
+    df_first_two_result = pd.DataFrame(data=matrix, index=df_train_index, columns=feature_names).add_suffix('_first_two_words').reset_index()
+
+    df_result = df_base.merge(df_first_result, on='id', how='left')
+    df_result = df_result.merge(df_first_two_result, on='id', how='left')
+
+    return df_result
+
+
+
+
+
+
+
+
+
 
 def parag_feats(df):
     df['paragraph'] = df['essay'].apply(lambda x: x.split('\n'))
@@ -548,6 +570,8 @@ class Runner():
         feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
         feats = feats.merge(product_to_keys(df, essays), on='id', how='left')
         feats = feats.merge(create_shortcuts(df), on='id', how='left')
+        # feats = feats.merge(word_apotrophe_feats(essays), on='id', how='left')
+        feats = feats.merge(sent_feats_v2(essays), on='id', how='left')
 
         if RCFG.use_scaling:
             logger.info('transform some features with standardscaler.')
