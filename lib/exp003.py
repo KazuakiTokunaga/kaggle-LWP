@@ -104,7 +104,7 @@ special_char_to_text = {
     ')': 'right_parenthesis', '_': 'underscore',
 }
 
-def get_countvectorizer_features(df, ngram=(2,3), thre=0.03, mode='train'):
+def get_countvectorizer_features(df, ngram=(2,4), thre=0.03, mode='train'):
 
     if mode == 'train':
         count_vectorizer = CountVectorizer(ngram_range=ngram, min_df=thre)
@@ -553,8 +553,8 @@ class Runner():
             logger.info('transform some features with standardscaler.')
             feats[RCFG.scaling_features] = StandardScaler().fit_transform(feats[RCFG.scaling_features])
 
-        # logger.info('Add CountVectorizer features.')
-        # feats = feats.merge(get_countvectorizer_features(essays, mode=mode), on='id', how='left')
+        logger.info('Add CountVectorizer features.')
+        feats = feats.merge(get_countvectorizer_features(essays, mode=mode), on='id', how='left')
 
         return feats
 
