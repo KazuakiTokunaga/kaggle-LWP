@@ -586,15 +586,15 @@ class Runner():
         feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
         feats = feats.merge(product_to_keys(df, essays), on='id', how='left')
         feats = feats.merge(create_shortcuts(df), on='id', how='left')
-        # feats = feats.merge(word_apotrophe_feats(essays), on='id', how='left')
-        feats = feats.merge(sent_feats_v2(essays, mode=mode), on='id', how='left')
+        feats = feats.merge(word_apotrophe_feats(essays), on='id', how='left')
+        # feats = feats.merge(sent_feats_v2(essays, mode=mode), on='id', how='left')
 
         if RCFG.use_scaling:
             logger.info('transform some features with standardscaler.')
             feats[RCFG.scaling_features] = StandardScaler().fit_transform(feats[RCFG.scaling_features])
 
-        # logger.info('Add CountVectorizer features.')
-        # feats = feats.merge(get_countvectorizer_features(essays, mode=mode), on='id', how='left')
+        logger.info('Add CountVectorizer features.')
+        feats = feats.merge(get_countvectorizer_features(essays, mode=mode), on='id', how='left')
 
         return feats
 
