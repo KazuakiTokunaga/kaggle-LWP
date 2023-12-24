@@ -436,6 +436,8 @@ def parag_feats(df):
 
 
 def word_apostrophe_feats(df):
+    
+    df_base = pd.DataFrame(df['id'].unique(), columns=['id'])
     df['word'] = df['essay'].apply(lambda x: re.split(' |\\n|\\.|\\?|\\!',x))
     df = df.explode('word')
 
@@ -448,7 +450,8 @@ def word_apostrophe_feats(df):
         'word_apostroph_short_one'
     ]
     
-    return df_apos
+    df_result = df_base.merge(df_apos, on='id', how='left').fillna(0)
+    return df_result
 
 
 def sent_feats_v2(df):
