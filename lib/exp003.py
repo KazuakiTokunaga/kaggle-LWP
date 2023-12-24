@@ -336,8 +336,6 @@ def q3(x):
     return x.quantile(0.75)
 def quantile10(x):
     return x.quantile(0.10)
-def quantile40(x):
-    return x.quantile(0.40)
 def quantile82(x):
     return x.quantile(0.82)
 def quantile90(x):
@@ -389,7 +387,7 @@ def word_feats(df):
     df = df[df['word_len'] != 0]
 
     word_agg_df = df[['id','word_len']].groupby(['id']).agg(
-        ['count', 'mean', 'max', q1, 'median', q3, 'sum', quantile40, quantile82, quantile90, quantile95]
+        ['count', 'mean', 'max', q1, 'median', q3, 'sum', quantile82, quantile90, quantile95]
     )
     word_agg_df.columns = ['_'.join(x) for x in word_agg_df.columns]
     word_agg_df['id'] = word_agg_df.index
