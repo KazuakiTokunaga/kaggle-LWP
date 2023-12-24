@@ -760,7 +760,7 @@ class Runner():
             class_vars_to_dict(RCFG), 
             self.first_oofscores, 
             self.first_cvscore, 
-            np.mean(self.first_cvscore),
+            sum(self.first_cvscore.values()) / len(self.first_cvscore.values()),
             self.second_oofscores, 
             self.second_cvscore, 
             self.cv_old,
