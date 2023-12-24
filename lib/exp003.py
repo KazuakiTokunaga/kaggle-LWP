@@ -573,8 +573,8 @@ class Runner():
             logger.info('transform some features with standardscaler.')
             feats[RCFG.scaling_features] = StandardScaler().fit_transform(feats[RCFG.scaling_features])
 
-        logger.info('Add CountVectorizer features.')
-        feats = feats.merge(get_countvectorizer_features(essays, mode=mode), on='id', how='left')
+        # logger.info('Add CountVectorizer features.')
+        # feats = feats.merge(get_countvectorizer_features(essays, mode=mode), on='id', how='left')
 
         return feats
 
