@@ -233,11 +233,9 @@ def dev_feats(df):
     )
     feats = feats.join(temp, on='id', how='left') 
 
-
     logger.info("Categorical columns features")
     temp  = df.group_by("id").agg(pl.n_unique(['down_event', 'up_event', 'text_change']))
     feats = feats.join(temp, on='id', how='left') 
-
 
     logger.info("Idle time features")
     temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
@@ -445,26 +443,27 @@ def parag_feats(df):
     return paragraph_agg_df
 
 
-def word_apotrophe_feats(df):
+def word_apostrophe_feats(df):
     df['word'] = df['essay'].apply(lambda x: re.split(' |\\n|\\.|\\?|\\!',x))
     df = df.explode('word')
 
-    # apostrophを含むwordを正規表現で抽出
     df = df[df['word'].str.contains("'")]
-    df['word'] = df['word'].str.replace("'", 'Apos')
-    df_apos = df.groupby('id')['word'].apply(list).reset_index()
-    df_apos['word'] = df_apos['word'].apply(lambda x: ' '.join(x))
-
-    df_train_index = pd.Index(df_apos['id'].unique(), name = 'id')
-    count_vectorizer = CountVectorizer(ngram_range=(1,1), min_df=0.05)
-    matrix = count_vectorizer.fit_transform(df_apos['word']).todense()
-    feature_names = count_vectorizer.get_feature_names_out()
-    df_result = pd.DataFrame(data=matrix, index=df_train_index, columns=feature_names).add_suffix('_word_apostroph').reset_index()
+    df_apos = df.groupby('id')['word'].agg([
+        lambda x: ((x.str.endswith("'q")) & (x.str.len()<=5)).sum(),
+        lambda x: ((x.str.endswith("'qq")) & (x.str.len()<=6)).sum(),
+        lambda x: ((x.str.endswith("'q")) & (x.str.len()>=9)).sum()
+    ]).reset_index()
+    df_apos.columns = [
+        'id',
+        'word_apostroph_short_one',
+        'word_apostroph_short_two',
+        'word_apostroph_long_one'
+    ]
     
-    return df_result
+    return df_apos
 
 
-def sent_feats_v2(df, mode='train'):
+def sent_feats(df):
     logger.info('Add Features based on the first several words in a sentence.')
 
     df_base = pd.DataFrame(df['id'].unique(), columns=['id'])
@@ -486,13 +485,11 @@ def sent_feats_v2(df, mode='train'):
     ]
 
     df_first_two = df.groupby('id')['first_two'].agg([
-        lambda x: ((x.str.len() <= 9) & (x.str.contains("'"))).sum(),
         lambda x: ((x != '') & (x.str.len() <= 6)).sum(),
-        lambda x: (x.str.len() >= 12).sum()
+        lambda x: (x.str.len() >= 11).sum()
     ]).reset_index()
     df_first_two.columns = [
         'id',
-        'first_two_word_short_apostrophe',
         'first_two_word_short',
         'first_two_word_long'
     ]
@@ -568,8 +565,8 @@ class Runner():
         feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
         feats = feats.merge(product_to_keys(df, essays), on='id', how='left')
         feats = feats.merge(create_shortcuts(df), on='id', how='left')
-        # feats = feats.merge(word_apotrophe_feats(essays), on='id', how='left')
-        feats = feats.merge(sent_feats_v2(essays, mode=mode), on='id', how='left')
+        feats = feats.merge(word_apostrophe_feats(essays), on='id', how='left')
+        feats = feats.merge(sent_feats_v2(essays), on='id', how='left')
 
         if RCFG.use_scaling:
             logger.info('transform some features with standardscaler.')
