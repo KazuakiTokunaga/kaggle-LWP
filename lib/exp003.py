@@ -92,7 +92,6 @@ class RCFG:
     use_weight = False
 
 
-num_cols = ['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']
 activities = ['Input', 'Remove/Cut', 'Nonproduction', 'Replace', 'Paste']
 events = ['q', 'Space', 'Backspace', 'Shift', 'ArrowRight', 'Leftclick', 'ArrowLeft', '.', ',', 'ArrowDown', 'ArrowUp', 'Enter', 'CapsLock', "'", 'Delete']
 text_changes = ['q', ' ', '.', ',', '\n', "'", '"', '-', '?', ';', '=', '/', '\\', ':']
@@ -217,16 +216,15 @@ def dev_feats(df):
     logger.info("Numerical columns features")
     temp = df.group_by("id").agg(
         pl.sum('action_time').name.suffix('_sum'), 
-        pl.mean(num_cols).name.suffix('_mean'), 
-        pl.std(num_cols).name.suffix('_std'),
-        pl.median(num_cols).name.suffix('_median'), 
-        pl.min(num_cols).name.suffix('_min'), 
-        pl.max(num_cols).name.suffix('_max'),
-        pl.quantile(num_cols, 0.5).name.suffix('_quantile'),
+        pl.mean(['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_mean'), 
+        pl.std(['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_std'),
+        pl.median(['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_median'), 
+        pl.min(['down_time', 'up_time']).name.suffix('_min'), 
+        pl.max(['event_id', 'down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_max'),
+        pl.quantile(['action_time', 'cursor_position', 'word_count'], 0.5).name.suffix('_quantile'),
         pl.col(['cursor_position', 'word_count', 'event_id']).filter(pl.col('down_time')<=20 * 60 * 1000).max().name.suffix('_max_20min'),
         pl.col(['cursor_position', 'word_count', 'event_id']).filter(pl.col('down_time')<=25 * 60 * 1000).max().name.suffix('_max_25min')
     )
-    temp = temp.drop(["cursor_position_min", "word_count_min", "action_time_min"])
     feats = feats.join(temp, on='id', how='left') 
 
 
@@ -328,15 +326,9 @@ def create_shortcuts(df):
     ctrl_right_df = ((event_df['down_event_shift_1'] == 'Control') & (event_df['down_event'] == 'ArrowRight')).groupby(event_df['id']).sum().reset_index(name='count')
     ctrl_shift_left_df = ((event_df['down_event_shift_2'] == 'Control') & (event_df['down_event_shift_1'] == 'Shift') & (event_df['down_event'] == 'ArrowLeft')).groupby(event_df['id']).sum().reset_index(name='count')
     ctrl_shift_right_df = ((event_df['down_event_shift_2'] == 'Control') & (event_df['down_event_shift_1'] == 'Shift') & (event_df['down_event'] == 'ArrowRight')).groupby(event_df['id']).sum().reset_index(name='count')
-    ctrl_c_df = ((event_df['down_event_shift_1'] == 'Control') & (event_df['down_event'].str.lower() == 'c')).groupby(event_df['id']).sum().reset_index(name='count')
-    ctrl_v_df = ((event_df['down_event_shift_1'] == 'Control') & (event_df['down_event'].str.lower() == 'v')).groupby(event_df['id']).sum().reset_index(name='count')
-    ctrl_x_df = ((event_df['down_event_shift_1'] == 'Control') & (event_df['down_event'].str.lower() == 'x')).groupby(event_df['id']).sum().reset_index(name='count')
 
     kb_shortcut_df = pd.DataFrame(event_df['id'].unique(), columns=['id'])
     kb_shortcut_df['ctrl_shift_count'] = ctrl_left_df['count'] + ctrl_right_df['count'] + ctrl_shift_left_df['count'] + ctrl_shift_right_df['count']
-    kb_shortcut_df['ctrl_c_cnt'] = ctrl_c_df['count']
-    kb_shortcut_df['ctrl_v_cnt'] = ctrl_v_df['count']
-    kb_shortcut_df['ctrl_x_cnt'] = ctrl_x_df['count']
 
     return kb_shortcut_df
 
@@ -344,11 +336,10 @@ def q1(x):
     return x.quantile(0.25)
 def q3(x):
     return x.quantile(0.75)
-
 def quantile10(x):
     return x.quantile(0.10)
-def quantile05(x):
-    return x.quantile(0.05)
+def quantile40(x):
+    return x.quantile(0.40)
 def quantile82(x):
     return x.quantile(0.82)
 def quantile90(x):
@@ -400,7 +391,7 @@ def word_feats(df):
     df = df[df['word_len'] != 0]
 
     word_agg_df = df[['id','word_len']].groupby(['id']).agg(
-        ['count', 'mean', 'max', q1, 'median', q3, 'sum', quantile10, quantile82, quantile90, quantile95]
+        ['count', 'mean', 'max', q1, 'median', q3, 'sum', quantile40, quantile82, quantile90, quantile95]
     )
     word_agg_df.columns = ['_'.join(x) for x in word_agg_df.columns]
     word_agg_df['id'] = word_agg_df.index
