@@ -463,7 +463,7 @@ def word_apostrophe_feats(df):
     return df_apos
 
 
-def sent_feats(df):
+def sent_feats_v2(df):
     logger.info('Add Features based on the first several words in a sentence.')
 
     df_base = pd.DataFrame(df['id'].unique(), columns=['id'])
@@ -480,8 +480,8 @@ def sent_feats(df):
     ]).reset_index()
     df_first.columns = [
         'id',
-       'first_word_long_comma',
-       'first_word_one_letter' 
+        'first_word_long_comma',
+        'first_word_one_letter' 
     ]
 
     df_first_two = df.groupby('id')['first_two'].agg([
