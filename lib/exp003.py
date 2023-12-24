@@ -222,6 +222,12 @@ def dev_feats(df):
         pl.min(['down_time', 'up_time']).name.suffix('_min'), 
         pl.max(['event_id', 'down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_max'),
         pl.quantile(['action_time', 'cursor_position', 'word_count'], 0.5).name.suffix('_quantile'),
+        pl.quantile(['action_time'], 0.05).name.suffix('_quantile05'),
+        pl.quantile(['action_time'], 0.10).name.suffix('_quantile10'),
+        pl.quantile(['action_time'], 0.25).name.suffix('_quantile25'),
+        pl.quantile(['action_time'], 0.75).name.suffix('_quantile75'),
+        pl.quantile(['action_time'], 0.90).name.suffix('_quantile90'),
+        pl.quantile(['action_time'], 0.95).name.suffix('_quantile95'),
         pl.col(['cursor_position', 'word_count', 'event_id']).filter(pl.col('down_time')<=20 * 60 * 1000).max().name.suffix('_max_20min'),
         pl.col(['cursor_position', 'word_count', 'event_id']).filter(pl.col('down_time')<=25 * 60 * 1000).max().name.suffix('_max_25min')
     )
