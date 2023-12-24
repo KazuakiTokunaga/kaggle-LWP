@@ -226,12 +226,12 @@ def dev_feats(df):
         pl.col(['cursor_position', 'word_count', 'event_id']).filter(pl.col('down_time')<=20 * 60 * 1000).max().name.suffix('_max_20min'),
         pl.col(['cursor_position', 'word_count', 'event_id']).filter(pl.col('down_time')<=25 * 60 * 1000).max().name.suffix('_max_25min')
     )
-    temp = temp.drop(["cursor_position_min", "word_count_min"])
+    temp = temp.drop(["cursor_position_min", "word_count_min", "action_time_min"])
     feats = feats.join(temp, on='id', how='left') 
 
 
     logger.info("Categorical columns features")
-    temp  = df.group_by("id").agg(pl.n_unique(['activity', 'down_event', 'up_event', 'text_change']))
+    temp  = df.group_by("id").agg(pl.n_unique(['down_event', 'up_event', 'text_change']))
     feats = feats.join(temp, on='id', how='left') 
 
 
@@ -345,14 +345,16 @@ def q1(x):
 def q3(x):
     return x.quantile(0.75)
 
+def quantile10(x):
+    return x.quantile(0.10)
+def quantile05(x):
+    return x.quantile(0.05)
 def quantile82(x):
     return x.quantile(0.82)
 def quantile90(x):
     return x.quantile(0.90)
 def quantile95(x):
     return x.quantile(0.95)
-
-AGGREGATIONS = ['count', 'mean', 'min', 'max', 'first', 'last', q1, 'median', q3, 'sum']
 
 def reconstruct_essay(currTextInput):
     essayText = ""
@@ -397,11 +399,12 @@ def word_feats(df):
     df['word_len'] = df['word'].apply(lambda x: len(x))
     df = df[df['word_len'] != 0]
 
-    word_agg_df = df[['id','word_len']].groupby(['id']).agg(AGGREGATIONS + [quantile82, quantile90, quantile95])
+    word_agg_df = df[['id','word_len']].groupby(['id']).agg(
+        ['count', 'mean', 'max', q1, 'median', q3, 'sum', quantile10, quantile82, quantile90, quantile95]
+    )
     word_agg_df.columns = ['_'.join(x) for x in word_agg_df.columns]
     word_agg_df['id'] = word_agg_df.index
     word_agg_df = word_agg_df.reset_index(drop=True)
-    word_agg_df.drop(columns=["word_len_min"], inplace=True)
     return word_agg_df
 
 
@@ -415,14 +418,35 @@ def sent_feats(df):
     df['sent_word_count'] = df['sent'].apply(lambda x: len(x.split(' ')))
     df = df[df.sent_len!=0].reset_index(drop=True)
 
-    sent_agg_df = pd.concat([df[['id','sent_len']].groupby(['id']).agg(AGGREGATIONS + [quantile90]), 
-                             df[['id','sent_word_count']].groupby(['id']).agg(AGGREGATIONS + [quantile90])], axis=1)
+    sent_agg_df = pd.concat([df[['id','sent_len']].groupby(['id']).agg(
+        ['count', 'mean', 'std', 'min', 'max', 'first', 'last', q1, 'median', q3, 'sum', quantile10, quantile90, quantile95]
+    ), df[['id','sent_word_count']].groupby(['id']).agg(
+        ['mean', 'min', 'std', 'max', 'first', 'last', q1, 'median', q3, 'sum', quantile90]
+    )], axis=1)
     sent_agg_df.columns = ['_'.join(x) for x in sent_agg_df.columns]
     sent_agg_df['id'] = sent_agg_df.index
     sent_agg_df = sent_agg_df.reset_index(drop=True)
-    sent_agg_df.drop(columns=["sent_word_count_count"], inplace=True)
     sent_agg_df = sent_agg_df.rename(columns={"sent_len_count":"sent_count"})
     return sent_agg_df
+
+def parag_feats(df):
+    df['paragraph'] = df['essay'].apply(lambda x: x.split('\n'))
+    df = df.explode('paragraph')
+    df['paragraph_len'] = df['paragraph'].apply(lambda x: len(x)) 
+    df['paragraph_word_count'] = df['paragraph'].apply(lambda x: len(x.split(' ')))
+    df = df[df.paragraph_len!=0].reset_index(drop=True)
+    
+    paragraph_agg_df = pd.concat([df[['id','paragraph_len']].groupby(['id']).agg(
+        ['count', 'mean', 'std', 'min', 'max', 'first', 'last', q1, 'median', q3, 'sum']
+    ), df[['id','paragraph_word_count']].groupby(['id']).agg(
+        ['mean', 'std', 'min', 'max', 'first', 'last', q1, 'median', q3, 'sum']
+    )], axis=1) 
+    paragraph_agg_df.columns = ['_'.join(x) for x in paragraph_agg_df.columns]
+    paragraph_agg_df['id'] = paragraph_agg_df.index
+    paragraph_agg_df = paragraph_agg_df.reset_index(drop=True)
+    paragraph_agg_df = paragraph_agg_df.rename(columns={"paragraph_len_count":"paragraph_count"})
+    return paragraph_agg_df
+
 
 def word_apotrophe_feats(df):
     df['word'] = df['essay'].apply(lambda x: re.split(' |\\n|\\.|\\?|\\!',x))
@@ -441,6 +465,7 @@ def word_apotrophe_feats(df):
     df_result = pd.DataFrame(data=matrix, index=df_train_index, columns=feature_names).add_suffix('_word_apostroph').reset_index()
     
     return df_result
+
 
 def sent_feats_v2(df, mode='train'):
     logger.info('Add Features based on the first several words in a sentence.')
@@ -479,25 +504,6 @@ def sent_feats_v2(df, mode='train'):
     df_result = df_result.merge(df_first_two, on='id', how='left')
     
     return df_result
-
-
-def parag_feats(df):
-    df['paragraph'] = df['essay'].apply(lambda x: x.split('\n'))
-    df = df.explode('paragraph')
-    # Number of characters in paragraphs
-    df['paragraph_len'] = df['paragraph'].apply(lambda x: len(x)) 
-    # Number of words in paragraphs
-    df['paragraph_word_count'] = df['paragraph'].apply(lambda x: len(x.split(' ')))
-    df = df[df.paragraph_len!=0].reset_index(drop=True)
-    
-    paragraph_agg_df = pd.concat([df[['id','paragraph_len']].groupby(['id']).agg(AGGREGATIONS), 
-                                  df[['id','paragraph_word_count']].groupby(['id']).agg(AGGREGATIONS)], axis=1) 
-    paragraph_agg_df.columns = ['_'.join(x) for x in paragraph_agg_df.columns]
-    paragraph_agg_df['id'] = paragraph_agg_df.index
-    paragraph_agg_df = paragraph_agg_df.reset_index(drop=True)
-    paragraph_agg_df.drop(columns=["paragraph_word_count_count"], inplace=True)
-    paragraph_agg_df = paragraph_agg_df.rename(columns={"paragraph_len_count":"paragraph_count"})
-    return paragraph_agg_df
 
 def product_to_keys(logs, essays):
     essays['product_len'] = essays.essay.str.len()
