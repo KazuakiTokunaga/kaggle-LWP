@@ -469,7 +469,7 @@ def sent_feats_v2(df):
     df['first'] = df['sent'].apply(lambda x: x.split()[0] if len(x.split()) > 0 else '')
     df['first_two'] = df['sent'].apply(lambda x: ' '.join(x.split()[:1]) if len(x.split()) > 1 else '')
     df['first_three'] = df['sent'].apply(lambda x: ' '.join(x.split()[:2]) if len(x.split()) > 2 else '')
-    df['first_hour'] = df['sent'].apply(lambda x: ' '.join(x.split()[:3]) if len(x.split()) > 3 else '')
+    df['first_four'] = df['sent'].apply(lambda x: ' '.join(x.split()[:3]) if len(x.split()) > 3 else '')
     
     df_first = df.groupby('id')['first'].agg([
         lambda x: ((x.str.len() > 5) & (x.str.endswith(','))).sum(),
