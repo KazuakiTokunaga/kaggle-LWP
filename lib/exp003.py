@@ -248,13 +248,13 @@ def dev_feats(df):
                                    pauses_3_sec = pl.col('time_diff').filter(pl.col('time_diff') > 3).count(),)
     feats = feats.join(temp, on='id', how='left') 
 
-    temp = df.with_columns(pl.col('word_count').shift(100).over('id').alias('word_count_shift50'))
-    temp = temp.with_columns((pl.col('word_count') - pl.col('word_count_shift50')).alias('word_count_gap50'))
+    temp = df.with_columns(pl.col('word_count').shift(100).over('id').alias('word_count_shift200'))
+    temp = temp.with_columns((pl.col('word_count') - pl.col('word_count_shift200')).alias('word_count_gap200'))
     temp = temp.group_by("id").agg(
-        pl.mean('word_count_gap50').name.suffix('_mean'), 
-        pl.std('word_count_gap50').name.suffix('_std'),
-        pl.max('word_count_gap50').name.suffix('_max'),
-        pl.median('word_count_gap50').name.suffix('_median'),
+        pl.mean('word_count_gap200').name.suffix('_mean'), 
+        pl.std('word_count_gap200').name.suffix('_std'),
+        pl.max('word_count_gap200').name.suffix('_max'),
+        pl.median('word_count_gap200').name.suffix('_median'),
     )
     feats = feats.join(temp, on='id', how='left')
 
@@ -291,6 +291,7 @@ def dev_feats(df):
         pl.max('P-bursts_v2').name.suffix('_max'),
         pl.col('P-bursts_v2').filter(pl.col('P-bursts_v2') > 1).count().name.suffix('_count_gt_1'),
         pl.col('P-bursts_v2').filter(pl.col('P-bursts_v2') > 3).count().name.suffix('_count_gt_3'),
+        pl.col('P-bursts_v2').filter(pl.col('P-bursts_v2') > 3).count().name.suffix('_count_gt_10'),
     )
     feats = feats.join(temp, on='id', how='left') 
 
