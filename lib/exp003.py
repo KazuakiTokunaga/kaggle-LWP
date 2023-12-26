@@ -492,16 +492,18 @@ def sent_feats_v2(df):
     df_first_three = df.groupby('id')['first_three'].agg([
         lambda x: ((x != '') & (x.str.endswith(','))).sum(),
     ])
+    df_first_three.columns = ['id', 'first_three_comma']
     df_first_four = df.groupby('id')['first_four'].agg([
         lambda x: ((x != '') & (x.str.endswith(','))).sum(),
     ])
+    df_first_four.columns = ['id', 'first_four_comma']
 
     df_result = df_base.merge(df_first, on='id', how='left')
     df_result = df_result.merge(df_first_two, on='id', how='left')
     df_result = df_result.merge(df_first_three, on='id', how='left')
     df_result = df_result.merge(df_first_four, on='id', how='left')
-    df_result['first_three_four_comma'] = df_result['first_three'] + df_result['first_four']
-    df_result = df_result.drop(['first_three', 'first_four'], axis=1)
+    df_result['first_three_four_comma'] = df_result['first_three_comma'] + df_result['first_four_comma']
+    df_result = df_result.drop(['first_three_comma', 'first_four_comma'], axis=1)
     
     return df_result
 
