@@ -293,8 +293,7 @@ def dev_feats(df):
         pl.median('P-bursts_v2').name.suffix('_median'), 
         pl.max('P-bursts_v2').name.suffix('_max'),
         pl.col('P-bursts_v2').filter(pl.col('P-bursts_v2') > 1).count().name.suffix('_count_gt_1'),
-        pl.col('P-bursts_v2').filter(pl.col('P-bursts_v2') > 3).count().name.suffix('_count_gt_3'),
-        pl.col('P-bursts_v2').filter(pl.col('P-bursts_v2') > 3).count().name.suffix('_count_gt_10'),
+        pl.col('P-bursts_v2').filter(pl.col('P-bursts_v2') > 3).count().name.suffix('_count_gt_3')
     )
     feats = feats.join(temp, on='id', how='left') 
 
@@ -491,11 +490,11 @@ def sent_feats_v2(df):
 
     df_first_three = df.groupby('id')['first_three'].agg([
         lambda x: ((x != '') & (x.str.endswith(','))).sum(),
-    ])
+    ]).reset_index()
     df_first_three.columns = ['id', 'first_three_comma']
     df_first_four = df.groupby('id')['first_four'].agg([
         lambda x: ((x != '') & (x.str.endswith(','))).sum(),
-    ])
+    ]).reset_index()
     df_first_four.columns = ['id', 'first_four_comma']
 
     df_result = df_base.merge(df_first, on='id', how='left')
