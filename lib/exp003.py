@@ -246,7 +246,8 @@ def dev_feats(df):
         pauses_1_sec = pl.col('time_diff').filter((pl.col('time_diff') > 1) & (pl.col('time_diff') < 1.5)).count(),
         pauses_1_half_sec = pl.col('time_diff').filter((pl.col('time_diff') > 1.5) & (pl.col('time_diff') < 2)).count(),
         pauses_2_sec = pl.col('time_diff').filter((pl.col('time_diff') > 2) & (pl.col('time_diff') < 3)).count(),
-        pauses_3_sec = pl.col('time_diff').filter(pl.col('time_diff') > 3).count()
+        pauses_3_sec = pl.col('time_diff').filter(pl.col('time_diff') > 3).count(),
+        pauses_10_sec = pl.col('time_diff').filter(pl.col('time_diff') > 10).count()
     )
     feats = feats.join(temp, on='id', how='left') 
 
@@ -467,6 +468,8 @@ def sent_feats_v2(df):
     df['sent'] = df['sent'].apply(lambda x: x.replace('\n','').strip())
     df['first'] = df['sent'].apply(lambda x: x.split()[0] if len(x.split()) > 0 else '')
     df['first_two'] = df['sent'].apply(lambda x: ' '.join(x.split()[:1]) if len(x.split()) > 1 else '')
+    df['first_three'] = df['sent'].apply(lambda x: ' '.join(x.split()[:2]) if len(x.split()) > 2 else '')
+    df['first_hour'] = df['sent'].apply(lambda x: ' '.join(x.split()[:3]) if len(x.split()) > 3 else '')
     
     df_first = df.groupby('id')['first'].agg([
         lambda x: ((x.str.len() > 5) & (x.str.endswith(','))).sum(),
@@ -479,17 +482,26 @@ def sent_feats_v2(df):
     ]
 
     df_first_two = df.groupby('id')['first_two'].agg([
-        lambda x: ((x != '') & (x.str.len() <= 6)).sum(),
-        lambda x: (x.str.len() >= 11).sum()
+        lambda x: ((x != '') & (x.str.len() <= 6)).sum()
     ]).reset_index()
     df_first_two.columns = [
         'id',
-        'first_two_word_short',
-        'first_two_word_long'
+        'first_two_word_short'
     ]
+
+    df_first_three = df.groupby('id')['first_three'].agg([
+        lambda x: ((x != '') & (x.str.endswith(','))).sum(),
+    ])
+    df_first_four = df.groupby('id')['first_four'].agg([
+        lambda x: ((x != '') & (x.str.endswith(','))).sum(),
+    ])
 
     df_result = df_base.merge(df_first, on='id', how='left')
     df_result = df_result.merge(df_first_two, on='id', how='left')
+    df_result = df_result.merge(df_first_three, on='id', how='left')
+    df_result = df_result.merge(df_first_four, on='id', how='left')
+    df_result['first_three_four_comma'] = df_result['first_three'] + df_result['first_four']
+    df_result = df_result.drop(['first_three', 'first_four'], axis=1)
     
     return df_result
 
