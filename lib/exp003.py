@@ -206,11 +206,13 @@ def dev_feats(df):
     logger.info("Input words stats features")
     temp = df.filter((~pl.col('text_change').str.contains('=>')) & (pl.col('text_change') != 'NoChange'))
     temp = temp.group_by('id').agg(pl.col('text_change').str.concat('').str.extract_all(r'q+'))
-    temp = temp.with_columns(input_word_count = pl.col('text_change').list.len(),
-                             input_word_length_mean = pl.col('text_change').map_elements(lambda x: np.mean([len(i) for i in x] if len(x) > 0 else 0)),
-                             input_word_length_max = pl.col('text_change').map_elements(lambda x: np.max([len(i) for i in x] if len(x) > 0 else 0)),
-                             input_word_length_std = pl.col('text_change').map_elements(lambda x: np.std([len(i) for i in x] if len(x) > 0 else 0)),
-                             input_word_length_skew = pl.col('text_change').map_elements(lambda x: skew([len(i) for i in x] if len(x) > 0 else 0)))
+    temp = temp.with_columns(
+        input_word_count = pl.col('text_change').list.len(),
+        input_word_length_mean = pl.col('text_change').map_elements(lambda x: np.mean([len(i) for i in x] if len(x) > 0 else 0)),
+        input_word_length_max = pl.col('text_change').map_elements(lambda x: np.max([len(i) for i in x] if len(x) > 0 else 0)),
+        input_word_length_std = pl.col('text_change').map_elements(lambda x: np.std([len(i) for i in x] if len(x) > 0 else 0)),
+        input_word_length_skew = pl.col('text_change').map_elements(lambda x: skew([len(i) for i in x] if len(x) > 0 else 0))
+    )
     temp = temp.drop('text_change')
     feats = feats.join(temp, on='id', how='left') 
 
@@ -451,6 +453,7 @@ def word_apostrophe_feats(df):
     ).reset_index()
     
     df_result = df_base.merge(df_words, on='id', how='left').fillna(0)
+
     return df_result
 
 
@@ -468,7 +471,7 @@ def sent_feats_v2(df):
     df['first_two'] = df['sent'].apply(lambda x: ' '.join(x.split()[:1]) if len(x.split()) > 1 else '')
     df['first_three'] = df['sent'].apply(lambda x: ' '.join(x.split()[:2]) if len(x.split()) > 2 else '')
     df['first_four'] = df['sent'].apply(lambda x: ' '.join(x.split()[:3]) if len(x.split()) > 3 else '')
-    df['last'] = df['sent'].apply(lambda x: x.split()[-1] if len(x.split()) > 0 else '')
+    df['last'] = df['sent'].apply(lambda x: x[-1] if len(x) > 0 else '')
     df['last_lag1'] = df.groupby('id')['last'].shift(1)
     df['last_consec2'] = df['last'] + df['last_lag1']
 
@@ -499,7 +502,7 @@ def sent_feats_v2(df):
     df_first['first_three_four_comma'] = df_first['first_three_comma'] + df_first['first_four_comma']
     df_first = df_first.drop(['first_three_comma', 'first_four_comma'], axis=1)
 
-    df_result = df_base.merge(df_first, on='id', how='left')
+    df_result = df_base.merge(df_first, on='id', how='left').fillna(0)
     
     return df_result
 
