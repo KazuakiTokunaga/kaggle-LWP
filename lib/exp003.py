@@ -193,9 +193,9 @@ def dev_feats(df):
     feats = count_by_values(df, 'activity', activities)
     feats = feats.join(count_by_values(df, 'text_change', text_changes), on='id', how='left') 
     feats = feats.join(count_by_values(df, 'down_event', events), on='id', how='left') 
-    # feats = feats.with_columns(
-    #     down_event_ArrowUpDown_cnt=pl.col('down_event_ArrowUp_cnt') + pl.col('down_event_ArrowDown_cnt')
-    # ).drop('down_event_ArrowUp_cnt', 'down_event_ArrowDown_cnt')
+    feats = feats.with_columns(
+        down_event_ArrowUpDown_cnt=pl.col('down_event_ArrowUp_cnt') + pl.col('down_event_ArrowDown_cnt')
+    ).drop('down_event_ArrowUp_cnt', 'down_event_ArrowDown_cnt')
 
     temp = df.group_by('id').agg(
         ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==" ")).sum().alias('delete_space_cnt'),
