@@ -251,15 +251,15 @@ def dev_feats(df):
     )
     feats = feats.join(temp, on='id', how='left') 
 
-    temp = df.with_columns(pl.col('word_count').shift(100).over('id').alias('word_count_shift200'))
-    temp = temp.with_columns((pl.col('word_count') - pl.col('word_count_shift200')).alias('word_count_gap200'))
-    temp = temp.group_by("id").agg(
-        pl.mean('word_count_gap200').name.suffix('_mean'), 
-        pl.std('word_count_gap200').name.suffix('_std'),
-        pl.max('word_count_gap200').name.suffix('_max'),
-        pl.median('word_count_gap200').name.suffix('_median'),
-    )
-    feats = feats.join(temp, on='id', how='left')
+    # temp = df.with_columns(pl.col('word_count').shift(100).over('id').alias('word_count_shift200'))
+    # temp = temp.with_columns((pl.col('word_count') - pl.col('word_count_shift200')).alias('word_count_gap200'))
+    # temp = temp.group_by("id").agg(
+    #     pl.mean('word_count_gap200').name.suffix('_mean'), 
+    #     pl.std('word_count_gap200').name.suffix('_std'),
+    #     pl.max('word_count_gap200').name.suffix('_max'),
+    #     pl.median('word_count_gap200').name.suffix('_median'),
+    # )
+    # feats = feats.join(temp, on='id', how='left')
 
     # 2秒以内で入力/削除したストリーム
     temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
