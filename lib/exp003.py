@@ -446,16 +446,11 @@ def word_apostrophe_feats(df):
     df['word'] = df['essay'].apply(lambda x: re.split(' |\\n|\\.|\\?|\\!',x))
     df = df.explode('word')
 
-    df = df[df['word'].str.contains("'")]
-    df_apos = df.groupby('id')['word'].agg([
-        lambda x: ((x.str.endswith("'q")) & (x.str.len()<=5)).sum(),
-    ]).reset_index()
-    df_apos.columns = [
-        'id',
-        'word_apostroph_short_one'
-    ]
+    df_words = df.groupby('id').agg(
+        word_apostrophe_cnt = ('word', lambda x: ((x.str.endswith("'q")) & (x.str.len()<=5)).sum()),
+    ).reset_index()
     
-    df_result = df_base.merge(df_apos, on='id', how='left').fillna(0)
+    df_result = df_base.merge(df_words, on='id', how='left').fillna(0)
     return df_result
 
 
