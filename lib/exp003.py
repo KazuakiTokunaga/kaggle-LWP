@@ -476,9 +476,10 @@ def sent_feats_v2(df):
     df['last_consec2'] = df['last'] + df['last_lag1']
 
     df['sent_len'] = df['sent'].apply(lambda x: len(x))
-    for i in range(1, 3):
+    for i in range(1, 8):
         df[f'sent_len_lag{i}'] = df.groupby('id')['sent_len'].shift(i)
     df['sent_len_mean3'] = df[['sent_len', 'sent_len_lag1', 'sent_len_lag2']].mean(axis=1)
+    df['sent_len_mean8'] = df[['sent_len', 'sent_len_lag1', 'sent_len_lag2', 'sent_len_lag3', 'sent_len_lag4', 'sent_len_lag5', 'sent_len_lag6', 'sent_len_lag7']].mean(axis=1)
     
     df_first = df.groupby('id').agg(
         first_word_long_comma = ('first', lambda x: ((x.str.len() > 6) & (x.str.endswith(','))).sum()),
@@ -497,6 +498,9 @@ def sent_feats_v2(df):
         min_mean3 = ('sent_len_mean3', 'min'),
         max_mean3 = ('sent_len_mean3', 'max'),
         mean_mean3 = ('sent_len_mean3', 'mean')
+        min_mean8 = ('sent_len_mean8', 'min'),
+        max_mean8 = ('sent_len_mean8', 'max'),
+        mean_mean8 = ('sent_len_mean8', 'mean')
     ).reset_index()
 
     df_first['first_three_four_comma'] = df_first['first_three_comma'] + df_first['first_four_comma']
