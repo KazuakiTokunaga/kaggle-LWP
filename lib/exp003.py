@@ -251,15 +251,15 @@ def dev_feats(df):
     )
     feats = feats.join(temp, on='id', how='left') 
 
-    # temp = df.with_columns(pl.col('word_count').shift(100).over('id').alias('word_count_shift200'))
-    # temp = temp.with_columns((pl.col('word_count') - pl.col('word_count_shift200')).alias('word_count_gap200'))
-    # temp = temp.group_by("id").agg(
-    #     pl.mean('word_count_gap200').name.suffix('_mean'), 
-    #     pl.std('word_count_gap200').name.suffix('_std'),
-    #     pl.max('word_count_gap200').name.suffix('_max'),
-    #     pl.median('word_count_gap200').name.suffix('_median'),
-    # )
-    # feats = feats.join(temp, on='id', how='left')
+    temp = df.with_columns(pl.col('word_count').shift(100).over('id').alias('word_count_shift200'))
+    temp = temp.with_columns((pl.col('word_count') - pl.col('word_count_shift200')).alias('word_count_gap200'))
+    temp = temp.group_by("id").agg(
+        pl.mean('word_count_gap200').name.suffix('_mean'), 
+        pl.std('word_count_gap200').name.suffix('_std'),
+        pl.max('word_count_gap200').name.suffix('_max'),
+        pl.median('word_count_gap200').name.suffix('_median'),
+    )
+    feats = feats.join(temp, on='id', how='left')
 
     # 2秒以内で入力/削除したストリーム
     temp = df.with_columns(pl.col('up_time').shift().over('id').alias('up_time_lagged'))
@@ -462,7 +462,7 @@ def sent_feats_v2(df):
 
     df_base = pd.DataFrame(df['id'].unique(), columns=['id'])
 
-    df['sent'] = df['essay'].apply(lambda x: re.split('\\.|\\?|\\!',x))
+    df['sent'] = df['essay'].apply(lambda x: re.split('(?<=[\\.|\\?|\\!])',x))
     df = df.explode('sent')
     df['sent'] = df['sent'].apply(lambda x: x.replace('\n','').strip())
     df['first'] = df['sent'].apply(lambda x: x.split()[0] if len(x.split()) > 0 else '')
@@ -470,39 +470,22 @@ def sent_feats_v2(df):
     df['first_three'] = df['sent'].apply(lambda x: ' '.join(x.split()[:2]) if len(x.split()) > 2 else '')
     df['first_four'] = df['sent'].apply(lambda x: ' '.join(x.split()[:3]) if len(x.split()) > 3 else '')
     
-    df_first = df.groupby('id')['first'].agg([
-        lambda x: ((x.str.len() > 5) & (x.str.endswith(','))).sum(),
-        lambda x: (x=='q').sum()
-    ]).reset_index()
-    df_first.columns = [
-        'id',
-        'first_word_long_comma',
-        'first_word_one_letter' 
-    ]
+    df_first = df.groupby('id').agg(
+        first_word_long_comma = ('first', lambda x: ((x.str.len() > 6) & (x.str.endswith(','))).sum()),
+        first_word_one_letter = ('first', lambda x: (x=='q').sum()),
+        first_two_word_short = ('first_two', lambda x: ((x != '') & (x.str.len() <= 7)).sum()),
+        first_three_comma = ('first_three', lambda x: ((x != '') & (x.str.endswith(','))).sum()),
+        first_four_comma = ('first_four', lambda x: ((x != '') & (x.str.endswith(','))).sum()),
+        sent_long_question = ('sent', lambda x: ((x.str.len() >= 50) & (x.str.endswith('?'))).sum()),
+        sent_double_hyphen = ('sent', lambda x: ((x.str.len() >= 50) & (x.str.count('-')==2)).sum()),
+        sent_double_quotation = ('sent', lambda x: ((x.str.len() >= 50) & (x.str.count('"')==2)).sum()),
+        sent_long_colon = ('sent', lambda x: ((x.str.len() >= 50) & ((x.str.contains(':')) | (x.str.contains(';')))).sum()),
+    ).reset_index()
 
-    df_first_two = df.groupby('id')['first_two'].agg([
-        lambda x: ((x != '') & (x.str.len() <= 6)).sum()
-    ]).reset_index()
-    df_first_two.columns = [
-        'id',
-        'first_two_word_short'
-    ]
-
-    df_first_three = df.groupby('id')['first_three'].agg([
-        lambda x: ((x != '') & (x.str.endswith(','))).sum(),
-    ]).reset_index()
-    df_first_three.columns = ['id', 'first_three_comma']
-    df_first_four = df.groupby('id')['first_four'].agg([
-        lambda x: ((x != '') & (x.str.endswith(','))).sum(),
-    ]).reset_index()
-    df_first_four.columns = ['id', 'first_four_comma']
+    df_first['first_three_four_comma'] = df_first['first_three_comma'] + df_first['first_four_comma']
+    df_first = df_first.drop(['first_three_comma', 'first_four_comma'], axis=1)
 
     df_result = df_base.merge(df_first, on='id', how='left')
-    df_result = df_result.merge(df_first_two, on='id', how='left')
-    df_result = df_result.merge(df_first_three, on='id', how='left')
-    df_result = df_result.merge(df_first_four, on='id', how='left')
-    df_result['first_three_four_comma'] = df_result['first_three_comma'] + df_result['first_four_comma']
-    df_result = df_result.drop(['first_three_comma', 'first_four_comma'], axis=1)
     
     return df_result
 
