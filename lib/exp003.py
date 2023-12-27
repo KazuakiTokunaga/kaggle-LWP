@@ -497,7 +497,7 @@ def sent_feats_v2(df):
         last_exclamation = ('last', lambda x: (x=='!').sum()),
         min_mean3 = ('sent_len_mean3', 'min'),
         max_mean3 = ('sent_len_mean3', 'max'),
-        mean_mean3 = ('sent_len_mean3', 'mean')
+        mean_mean3 = ('sent_len_mean3', 'mean'),
         min_mean8 = ('sent_len_mean8', 'min'),
         max_mean8 = ('sent_len_mean8', 'max'),
         mean_mean8 = ('sent_len_mean8', 'mean')
