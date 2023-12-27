@@ -193,6 +193,9 @@ def dev_feats(df):
     feats = count_by_values(df, 'activity', activities)
     feats = feats.join(count_by_values(df, 'text_change', text_changes), on='id', how='left') 
     feats = feats.join(count_by_values(df, 'down_event', events), on='id', how='left') 
+    # feats = feats.with_columns(
+    #     down_event_ArrowUpDown_cnt=pl.col('down_event_ArrowUp_cnt') + pl.col('down_event_ArrowDown_cnt')
+    # ).drop('down_event_ArrowUp_cnt', 'down_event_ArrowDown_cnt')
 
     temp = df.group_by('id').agg(
         ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==" ")).sum().alias('delete_space_cnt'),
@@ -390,7 +393,7 @@ def word_feats(df):
     df = df[df['word_len'] != 0]
 
     word_agg_df = df[['id','word_len']].groupby(['id']).agg(
-        ['count', 'mean', 'max', q1, 'median', q3, 'sum', quantile82, quantile90, quantile95]
+        ['count', 'mean', 'max', q3, 'sum', quantile82, quantile90, quantile95]
     )
     word_agg_df.columns = ['_'.join(x) for x in word_agg_df.columns]
     word_agg_df['id'] = word_agg_df.index
@@ -487,6 +490,8 @@ def sent_feats_v2(df):
         first_three_comma = ('first_three', lambda x: ((x != '') & (x.str.endswith(','))).sum()),
         first_four_comma = ('first_four', lambda x: ((x != '') & (x.str.endswith(','))).sum()),
         sent_hyphen = ('sent', lambda x: (x.str.contains('-')).sum()),
+        sent_apostroph = ('sent', lambda x: (x.str.contains("'")).sum()),
+        sent_single_quotation = ('sent', lambda x: (x.str.count('"')==1).sum()),
         sent_double_quotation = ('sent', lambda x: (x.str.count('"')==2).sum()),
         sent_colon = ('sent', lambda x: ((x.str.contains(':')) | (x.str.contains(';'))).sum()),
         last_question = ('last', lambda x: (x=='?').sum()),
@@ -502,7 +507,7 @@ def sent_feats_v2(df):
 
     df_result = df_base.merge(df_first, on='id', how='left')
     
-    return df, df_result
+    return df_result
 
 def product_to_keys(logs, essays):
     essays['product_len'] = essays.essay.str.len()
