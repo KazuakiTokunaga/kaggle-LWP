@@ -465,10 +465,20 @@ def sent_feats_v2(df):
     df['sent'] = df['essay'].apply(lambda x: re.split('(?<=[\\.|\\?|\\!])',x))
     df = df.explode('sent')
     df['sent'] = df['sent'].apply(lambda x: x.replace('\n','').strip())
+    df = df[df['sent'].str.contains('q')].copy()
+
     df['first'] = df['sent'].apply(lambda x: x.split()[0] if len(x.split()) > 0 else '')
     df['first_two'] = df['sent'].apply(lambda x: ' '.join(x.split()[:1]) if len(x.split()) > 1 else '')
     df['first_three'] = df['sent'].apply(lambda x: ' '.join(x.split()[:2]) if len(x.split()) > 2 else '')
     df['first_four'] = df['sent'].apply(lambda x: ' '.join(x.split()[:3]) if len(x.split()) > 3 else '')
+    df['last'] = df['sent'].apply(lambda x: x.split()[-1] if len(x.split()) > 0 else '')
+    df['last_lag1'] = df.groupby('id')['last'].shift(1)
+    df['last_consec2'] = df['last'] + df['last_lag1']
+
+    df['sent_len'] = df['sent'].apply(lambda x: len(x))
+    for i in range(1, 3):
+        df[f'sent_len_lag{i}'] = df.groupby('id')['sent_len'].shift(i)
+    df['sent_len_mean3'] = df[['sent_len', 'sent_len_lag1', 'sent_len_lag2']].mean(axis=1)
     
     df_first = df.groupby('id').agg(
         first_word_long_comma = ('first', lambda x: ((x.str.len() > 6) & (x.str.endswith(','))).sum()),
@@ -476,10 +486,15 @@ def sent_feats_v2(df):
         first_two_word_short = ('first_two', lambda x: ((x != '') & (x.str.len() <= 7)).sum()),
         first_three_comma = ('first_three', lambda x: ((x != '') & (x.str.endswith(','))).sum()),
         first_four_comma = ('first_four', lambda x: ((x != '') & (x.str.endswith(','))).sum()),
-        sent_long_question = ('sent', lambda x: ((x.str.len() >= 50) & (x.str.endswith('?'))).sum()),
-        sent_double_hyphen = ('sent', lambda x: ((x.str.len() >= 50) & (x.str.count('-')==2)).sum()),
-        sent_double_quotation = ('sent', lambda x: ((x.str.len() >= 50) & (x.str.count('"')==2)).sum()),
-        sent_long_colon = ('sent', lambda x: ((x.str.len() >= 50) & ((x.str.contains(':')) | (x.str.contains(';')))).sum()),
+        sent_hyphen = ('sent', lambda x: (x.str.contains('-')).sum()),
+        sent_double_quotation = ('sent', lambda x: (x.str.count('"')==2).sum()),
+        sent_colon = ('sent', lambda x: ((x.str.contains(':')) | (x.str.contains(';'))).sum()),
+        last_question = ('last', lambda x: (x=='?').sum()),
+        last_question_double = ('last_consec2', lambda x: (x=='??').sum()),
+        last_exclamation = ('last', lambda x: (x=='!').sum()),
+        min_mean3 = ('sent_len_mean3', 'min'),
+        max_mean3 = ('sent_len_mean3', 'max'),
+        mean_mean3 = ('sent_len_mean3', 'mean')
     ).reset_index()
 
     df_first['first_three_four_comma'] = df_first['first_three_comma'] + df_first['first_four_comma']
@@ -487,7 +502,7 @@ def sent_feats_v2(df):
 
     df_result = df_base.merge(df_first, on='id', how='left')
     
-    return df_result
+    return df, df_result
 
 def product_to_keys(logs, essays):
     essays['product_len'] = essays.essay.str.len()
