@@ -1,6 +1,3 @@
-# https://www.kaggle.com/code/hiarsl/feature-engineering-sentence-paragraph-features
-
-import gc
 import os
 import itertools
 import pickle
@@ -13,7 +10,6 @@ import numpy as np
 import pandas as pd
 from collections import Counter
 from collections import defaultdict
-from itertools import cycle
 from scipy import stats
 from scipy.stats import skew, kurtosis
 import polars as pl
@@ -533,7 +529,7 @@ def essay_diff_feats(log, essay_df):
     # )
     
     def edit_distance_first(x):
-        l = int(x['len_15min']) - 100
+        l = max(int(x['len_15min']) - 100, 1)
         e, e15 = x['essay'], x['essay15']
         if type(e) != str or type(e15) != str or min(len(e), len(e15)) < l:
             return 0
