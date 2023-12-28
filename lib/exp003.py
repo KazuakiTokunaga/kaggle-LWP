@@ -442,14 +442,15 @@ def parag_feats(df):
     return paragraph_agg_df
 
 
-def word_apostrophe_feats(df):
+def word_feats_v2(df):
     
     df_base = pd.DataFrame(df['id'].unique(), columns=['id'])
     df['word'] = df['essay'].apply(lambda x: re.split(' |\\n|\\.|\\?|\\!',x))
     df = df.explode('word')
 
     df_words = df.groupby('id').agg(
-        word_apostrophe_cnt = ('word', lambda x: ((x.str.endswith("'q")) & (x.str.len()<=5)).sum()),
+        word_feats_apostrophe_cnt = ('word', lambda x: ((x.str.endswith("'q")) & (x.str.len()<=5)).sum()),
+        word_feats_long_apostrophe_cnt = ('word', lambda x: ((x.str.contains("'")) & (x.str.len()>=8)).sum()),
     ).reset_index()
     
     df_result = df_base.merge(df_words, on='id', how='left').fillna(0)
@@ -475,13 +476,6 @@ def sent_feats_v2(df):
     df['last'] = df['sent'].apply(lambda x: x[-1] if len(x) > 0 else '')
     df['last_lag1'] = df.groupby('id')['last'].shift(1)
     df['last_consec2'] = df['last'] + df['last_lag1']
-
-    df['sent_len'] = df['sent'].apply(lambda x: len(x))
-    for i in range(1, 12):
-        df[f'sent_len_lag{i}'] = df.groupby('id')['sent_len'].shift(i)
-    df['sent_len_mean3'] = df[['sent_len', 'sent_len_lag1', 'sent_len_lag2']].mean(axis=1)
-    df['sent_len_mean8'] = df[['sent_len'] + [f'sent_len_lag{i}' for i in range(1, 8)]].mean(axis=1)
-    df['sent_len_mean12'] = df[['sent_len'] + [f'sent_len_lag{i}' for i in range(1, 12)]].mean(axis=1)
     
     df_first = df.groupby('id').agg(
         sent_feats_first_word_long_comma = ('first', lambda x: ((x.str.len() > 6) & (x.str.endswith(','))).sum()),
@@ -490,25 +484,20 @@ def sent_feats_v2(df):
         sent_feats_first_three_comma = ('first_three', lambda x: ((x != '') & (x.str.endswith(','))).sum()),
         sent_feats_first_four_comma = ('first_four', lambda x: ((x != '') & (x.str.endswith(','))).sum()),
         sent_feats_first_eight_mean = ('fist_eight_len', 'mean'),
+        sent_feats_after_apostroph = ('sent', lambda x: (x.str.contains(".{20,}'")).sum()),
         sent_feats_hyphen = ('sent', lambda x: (x.str.contains('-')).sum()),
         sent_feats_double_hyphen = ('sent', lambda x: (x.str.count('-')==2).sum()),
-        sent_feats_long_hyphen = ('sent', lambda x: (x.str.contains('-[q ]{30,}')).sum()),
+        sent_feats_long_hyphen = ('sent', lambda x: (x.str.contains('-.{30,}')).sum()),
         sent_feats_apostroph = ('sent', lambda x: (x.str.contains("'")).sum()),
-        sent_feats_single_quotation = ('sent', lambda x: (x.str.count('"')==1).sum()),
-        sent_feats_double_quotation = ('sent', lambda x: (x.str.count('"')==2).sum()),
+        sent_feats_double_quotation = ('sent', lambda x: (x.str.contains('".{2,}"')).sum()),
+        sent_feats_long_double_quotation = ('sent', lambda x: (x.str.contains('".{20,}"')).sum()),
         sent_feats_colon = ('sent', lambda x: ((x.str.contains(':')) | (x.str.contains(';'))).sum()),
-        sent_feats_long_comma = ('sent', lambda x: ((x.str.contains('[q ]{30,},')) & (x.str.contains(',[q ]{30,}'))).sum()),
+        sent_feats_long_comma = ('sent', lambda x: ((x.str.contains('.{30,},')) & (x.str.contains(',.{30,}'))).sum()),
         sent_feats_double_comma = ('sent', lambda x: ((x.str.len() >= 50) & (x.str.count(",")==2)).sum()),
         sent_feats_triple_comma = ('sent', lambda x: ((x.str.len() >= 80) & (x.str.count(",")>=3)).sum()),
         sent_feats_last_question = ('last', lambda x: (x=='?').sum()),
         sent_feats_last_question_double = ('last_consec2', lambda x: (x=='??').sum()),
         sent_feats_last_exclamation = ('last', lambda x: (x=='!').sum())
-        # sent_feats_min_mean3 = ('sent_len_mean3', 'min'),
-        # sent_feats_max_mean3 = ('sent_len_mean3', 'max'),
-        # sent_feats_min_mean8 = ('sent_len_mean8', 'min'),
-        # sent_feats_max_mean8 = ('sent_len_mean8', 'max'),
-        # sent_feats_min_mean12 = ('sent_len_mean12', 'min'),
-        # sent_feats_max_mean12 = ('sent_len_mean12', 'max'),
     ).reset_index()
 
 
@@ -585,7 +574,7 @@ class Runner():
         feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
         feats = feats.merge(product_to_keys(df, essays), on='id', how='left')
         feats = feats.merge(create_shortcuts(df), on='id', how='left')
-        feats = feats.merge(word_apostrophe_feats(essays), on='id', how='left')
+        feats = feats.merge(word_feats_v2(essays), on='id', how='left')
         feats = feats.merge(sent_feats_v2(essays), on='id', how='left')
 
         if RCFG.use_scaling:
