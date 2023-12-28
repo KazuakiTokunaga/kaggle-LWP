@@ -509,18 +509,40 @@ def sent_feats_v2(df):
     
     return df_result
 
-def essay_diff_feats(df, df2):
-    
-    df2.columns = ['id', 'essay2']
-    df_total = df.merge(df2, on='id', how='left')
-    df_total['len_final'] = df_total['essay'].str.len()
-    df_total['len_25min'] = df_total['essay2'].str.len()
-    df_total['len_diff'] = df_total['len_final'] - df_total['len_25min']
-    df_total['edit_distance'] = df_total.apply(lambda x: Levenshtein.distance(x['essay'], x['essay2']), axis=1)
 
-    df_total.drop(['essay', 'essay2', 'len_final', 'len_25min'], axis=1, inplace=True)
+def essay_diff_feats(log, essay_df):
+
+    essays_15min_df = get_essay_df(log[log['down_time']<=15*60*1000])
+    essays_15min_df.rename(columns={'essay': 'essay15'}, inplace=True)
+
+    essays_25min_df = get_essay_df(log[log['down_time']<=25*60*1000])
+    essays_25min_df.rename(columns={'essay': 'essay25'}, inplace=True)
+
+    df_total = essay_df.merge(essays_15min_df, on='id', how='left')
+    df_total = df_total.merge(essays_25min_df, on='id', how='left')
+    df_total['len_final'] = df_total['essay'].str.len().fillna(0)
+    df_total['len_15min'] = df_total['essay15'].str.len().fillna(0)
+    df_total['len_25min'] = df_total['essay25'].str.len().fillna(0)
+    df_total['len_15min_diff'] = df_total['len_final'] - df_total['len_15min']
+    df_total['len_25min_diff'] = df_total['len_final'] - df_total['len_25min']
+    
+    df_total['edit_distance_15min'] = df_total.apply(
+        lambda x: Levenshtein.distance(x['essay'], x['essay15']) if type(x['essay'])==str and type(x['essay15'])==str else 0, axis=1
+    )
+    df_total['edit_distance_25min'] = df_total.apply(
+        lambda x: Levenshtein.distance(x['essay'], x['essay25']) if type(x['essay'])==str and type(x['essay25'])==str else 0, axis=1
+    )
+    df_total['edit_distance_minus_diff_15min'] = df_total['edit_distance_15min'] - abs(df_total['len_15min_diff'])
+    df_total['edit_distance_minus_diff_25min'] = df_total['edit_distance_25min'] - abs(df_total['len_25min_diff'])
+    
+    df_total['edit_distance_first_25min'] = df_total.apply(
+        lambda x: Levenshtein.distance(x['essay'][:500], x['essay25'][:500]) if type(x['essay'])==str and type(x['essay25'])==str and min(len(x['essay']), len(x['essay25']))>=200 else 0, axis=1
+    )
+
+    df_total.drop(['essay', 'essay15', 'essay25', 'len_final', 'len_15min', 'len_25min'], axis=1, inplace=True)
 
     return df_total
+
 
 def product_to_keys(logs, essays):
     essays['product_len'] = essays.essay.str.len()
@@ -584,8 +606,8 @@ class Runner():
         feats = feats.merge(sent_feats(essays), on='id', how='left')
         feats = feats.merge(parag_feats(essays), on='id', how='left')
 
-        essays_25min = get_essay_df(df[df['down_time']<=25*60*1000])
-        feats = feats.merge(essay_diff_feats(essays, essays_25min), on='id', how='left')
+        logger.info('Add features based on comparison of essays at different timestamps.')
+        feats = feats.merge(essay_diff_feats(df, essays), on='id', how='left')
 
         logger.info('Add other features.')
         feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
