@@ -460,7 +460,6 @@ def word_feats_v2(df):
 
 
 def sent_feats_v2(df):
-    logger.info('Add Features based on the first several words in a sentence.')
 
     df_base = pd.DataFrame(df['id'].unique(), columns=['id'])
 
@@ -536,7 +535,7 @@ def essay_diff_feats(log, essay_df):
     df_total['edit_distance_minus_diff_25min'] = df_total['edit_distance_25min'] - abs(df_total['len_25min_diff'])
     
     df_total['edit_distance_first_25min'] = df_total.apply(
-        lambda x: Levenshtein.distance(x['essay'][:500], x['essay25'][:500]) if type(x['essay'])==str and type(x['essay25'])==str and min(len(x['essay']), len(x['essay25']))>=200 else 0, axis=1
+        lambda x: Levenshtein.distance(x['essay'][:1000], x['essay25'][:1000]) if type(x['essay'])==str and type(x['essay25'])==str and min(len(x['essay']), len(x['essay25']))>=1000 else 0, axis=1
     )
 
     df_total.drop(['essay', 'essay15', 'essay25', 'len_final', 'len_15min', 'len_25min'], axis=1, inplace=True)
@@ -597,14 +596,17 @@ class Runner():
     def _add_features(self, df, mode='train'):
 
         feats = dev_feats(pl.from_pandas(df))
-        # feats = feats.join(dev_feats_last(pl.from_pandas(df)), on='id', how='left')
         feats = feats.to_pandas()
     
-        logger.info('Add essay features.')
+        logger.info('Add simple essay features.')
         essays = get_essay_df(df)
         feats = feats.merge(word_feats(essays), on='id', how='left')
         feats = feats.merge(sent_feats(essays), on='id', how='left')
         feats = feats.merge(parag_feats(essays), on='id', how='left')
+
+        logger.info('Add features using completed essays.')
+        feats = feats.merge(word_feats_v2(essays), on='id', how='left')
+        feats = feats.merge(sent_feats_v2(essays), on='id', how='left')
 
         logger.info('Add features based on comparison of essays at different timestamps.')
         feats = feats.merge(essay_diff_feats(df, essays), on='id', how='left')
@@ -613,8 +615,7 @@ class Runner():
         feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
         feats = feats.merge(product_to_keys(df, essays), on='id', how='left')
         feats = feats.merge(create_shortcuts(df), on='id', how='left')
-        feats = feats.merge(word_feats_v2(essays), on='id', how='left')
-        feats = feats.merge(sent_feats_v2(essays), on='id', how='left')
+
 
         if RCFG.use_scaling:
             logger.info('transform some features with standardscaler.')
