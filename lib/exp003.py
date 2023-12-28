@@ -531,12 +531,16 @@ def essay_diff_feats(log, essay_df):
     df_total['edit_distance_25min'] = df_total.apply(
         lambda x: Levenshtein.distance(x['essay'], x['essay25']) if type(x['essay'])==str and type(x['essay25'])==str else 0, axis=1
     )
-    df_total['edit_distance_minus_diff_15min'] = df_total['edit_distance_15min'] - abs(df_total['len_15min_diff'])
-    df_total['edit_distance_minus_diff_25min'] = df_total['edit_distance_25min'] - abs(df_total['len_25min_diff'])
     
-    df_total['edit_distance_first_25min'] = df_total.apply(
-        lambda x: Levenshtein.distance(x['essay'][:1000], x['essay25'][:1000]) if type(x['essay'])==str and type(x['essay25'])==str and min(len(x['essay']), len(x['essay25']))>=1000 else 0, axis=1
-    )
+    def edit_distance_first(x):
+        l = int(x['len_15min']) - 100
+        e, e15 = x['essay'], x['essay15']
+        if type(e) != str or type(e15) != str or min(len(e), len(e15)) < l:
+            return 0
+        else:
+            return Levenshtein.distance(e[:l], e15[:l])
+    
+    df_total['edit_distance_first_15min'] = df_total.apply(edit_distance_first, axis=1)
 
     df_total.drop(['essay', 'essay15', 'essay25', 'len_final', 'len_15min', 'len_25min'], axis=1, inplace=True)
 
