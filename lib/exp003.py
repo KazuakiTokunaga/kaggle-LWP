@@ -512,8 +512,8 @@ def sent_feats_v2(df):
     ).reset_index()
 
 
-    df_first['first_three_four_comma'] = df_first['first_three_comma'] + df_first['first_four_comma']
-    df_first = df_first.drop(['first_three_comma', 'first_four_comma'], axis=1)
+    df_first['sent_feats_first_three_four_comma'] = df_first['sent_feats_first_three_comma'] + df_first['sent_feats_first_four_comma']
+    df_first = df_first.drop(['sent_feats_first_three_comma', 'sent_feats_first_four_comma'], axis=1)
 
     df_result = df_base.merge(df_first, on='id', how='left').fillna(0)
     
