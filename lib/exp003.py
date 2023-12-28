@@ -517,7 +517,7 @@ def essay_diff_feats(log, essay_df):
     essays_25min_df = get_essay_df(log[log['down_time']<=25*60*1000])
     essays_25min_df.rename(columns={'essay': 'essay25'}, inplace=True)
 
-    df_total = essay_df.merge(essays_15min_df, on='id', how='left')
+    df_total = essay_df[['id', 'essay']].merge(essays_15min_df, on='id', how='left')
     df_total = df_total.merge(essays_25min_df, on='id', how='left')
     df_total['len_final'] = df_total['essay'].str.len().fillna(0)
     df_total['len_15min'] = df_total['essay15'].str.len().fillna(0)
