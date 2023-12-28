@@ -24,6 +24,7 @@ from sklearn.preprocessing import StandardScaler
 import lightgbm as lgb
 import copy
 import datetime
+import Levenshtein
 
 from utils.utils import Logger, WriteSheet
 from utils.utils import class_vars_to_dict
@@ -508,6 +509,19 @@ def sent_feats_v2(df):
     
     return df_result
 
+def essay_diff_feats(df, df2):
+    
+    df2.columns = ['id', 'essay2']
+    df_total = df.merge(df2, on='id', how='left')
+    df_total['len_final'] = df_total['essay'].str.len()
+    df_total['len_25min'] = df_total['essay2'].str.len()
+    df_total['len_diff'] = df_total['len_final'] - df_total['len_25min']
+    df_total['edit_distance'] = df_total.apply(lambda x: Levenshtein.distance(x['essay'], x['essay2']), axis=1)
+
+    df_total.drop(['essay', 'essay2', 'len_final', 'len_25min'], axis=1, inplace=True)
+
+    return df_total
+
 def product_to_keys(logs, essays):
     essays['product_len'] = essays.essay.str.len()
     tmp_df = logs[logs.activity.isin(['Input', 'Remove/Cut'])].groupby(['id']).agg({'activity': 'count'}).reset_index().rename(columns={'activity': 'keys_pressed'})
@@ -569,6 +583,9 @@ class Runner():
         feats = feats.merge(word_feats(essays), on='id', how='left')
         feats = feats.merge(sent_feats(essays), on='id', how='left')
         feats = feats.merge(parag_feats(essays), on='id', how='left')
+
+        essays_25min = get_essay_df(df[df['down_time']<=25*60*1000])
+        feats = feats.merge(essay_diff_feats(essays, essays_25min), on='id', how='left')
 
         logger.info('Add other features.')
         feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
