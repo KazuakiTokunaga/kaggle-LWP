@@ -494,13 +494,13 @@ def sent_feats_v2(df):
         sent_colon = ('sent', lambda x: ((x.str.contains(':')) | (x.str.contains(';'))).sum()),
         last_question = ('last', lambda x: (x=='?').sum()),
         last_question_double = ('last_consec2', lambda x: (x=='??').sum()),
-        last_exclamation = ('last', lambda x: (x=='!').sum()),
-        min_mean3 = ('sent_len_mean3', 'min'),
-        max_mean3 = ('sent_len_mean3', 'max'),
-        mean_mean3 = ('sent_len_mean3', 'mean'),
-        min_mean8 = ('sent_len_mean8', 'min'),
-        max_mean8 = ('sent_len_mean8', 'max'),
-        mean_mean8 = ('sent_len_mean8', 'mean')
+        last_exclamation = ('last', lambda x: (x=='!').sum())
+        # min_mean3 = ('sent_len_mean3', 'min'),
+        # max_mean3 = ('sent_len_mean3', 'max'),
+        # mean_mean3 = ('sent_len_mean3', 'mean'),
+        # min_mean8 = ('sent_len_mean8', 'min'),
+        # max_mean8 = ('sent_len_mean8', 'max'),
+        # mean_mean8 = ('sent_len_mean8', 'mean')
     ).reset_index()
 
     df_first['first_three_four_comma'] = df_first['first_three_comma'] + df_first['first_four_comma']
