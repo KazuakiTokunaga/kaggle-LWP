@@ -471,15 +471,17 @@ def sent_feats_v2(df):
     df['first_two'] = df['sent'].apply(lambda x: ' '.join(x.split()[:1]) if len(x.split()) > 1 else '')
     df['first_three'] = df['sent'].apply(lambda x: ' '.join(x.split()[:2]) if len(x.split()) > 2 else '')
     df['first_four'] = df['sent'].apply(lambda x: ' '.join(x.split()[:3]) if len(x.split()) > 3 else '')
+    df['fist_eight_len'] = df['sent'].apply(lambda x: len(x) if len(x.split()) > 7 else np.nan)
     df['last'] = df['sent'].apply(lambda x: x[-1] if len(x) > 0 else '')
     df['last_lag1'] = df.groupby('id')['last'].shift(1)
     df['last_consec2'] = df['last'] + df['last_lag1']
 
     df['sent_len'] = df['sent'].apply(lambda x: len(x))
-    for i in range(1, 8):
+    for i in range(1, 12):
         df[f'sent_len_lag{i}'] = df.groupby('id')['sent_len'].shift(i)
     df['sent_len_mean3'] = df[['sent_len', 'sent_len_lag1', 'sent_len_lag2']].mean(axis=1)
-    df['sent_len_mean8'] = df[['sent_len', 'sent_len_lag1', 'sent_len_lag2', 'sent_len_lag3', 'sent_len_lag4', 'sent_len_lag5', 'sent_len_lag6', 'sent_len_lag7']].mean(axis=1)
+    df['sent_len_mean8'] = df[['sent_len'] + [f'sent_len_lag{i}' for i in range(1, 8)]].mean(axis=1)
+    df['sent_len_mean12'] = df[['sent_len'] + [f'sent_len_lag{i}' for i in range(1, 12)]].mean(axis=1)
     
     df_first = df.groupby('id').agg(
         first_word_long_comma = ('first', lambda x: ((x.str.len() > 6) & (x.str.endswith(','))).sum()),
@@ -487,21 +489,28 @@ def sent_feats_v2(df):
         first_two_word_short = ('first_two', lambda x: ((x != '') & (x.str.len() <= 7)).sum()),
         first_three_comma = ('first_three', lambda x: ((x != '') & (x.str.endswith(','))).sum()),
         first_four_comma = ('first_four', lambda x: ((x != '') & (x.str.endswith(','))).sum()),
+        first_eight_mean = ('fist_eight_len', 'mean'),
         sent_hyphen = ('sent', lambda x: (x.str.contains('-')).sum()),
+        sent_double_hyphen = ('sent', lambda x: (x.str.count('-')==2).sum()),
+        sent_long_hyphen = ('sent', lambda x: (x.str.contains('-[q ]{30,}')).sum()),
         sent_apostroph = ('sent', lambda x: (x.str.contains("'")).sum()),
         sent_single_quotation = ('sent', lambda x: (x.str.count('"')==1).sum()),
         sent_double_quotation = ('sent', lambda x: (x.str.count('"')==2).sum()),
         sent_colon = ('sent', lambda x: ((x.str.contains(':')) | (x.str.contains(';'))).sum()),
+        sent_long_comma = ('sent', lambda x: ((x.str.contains('[q ]{30,},')) & (x.str.contains(',[q ]{30,}'))).sum()),
+        sent_double_comma = ('sent', lambda x: ((x.str.len() >= 50) & (x.str.count(",")==2)).sum()),
+        sent_triple_comma = ('sent', lambda x: ((x.str.len() >= 80) & (x.str.count(",")>=3)).sum()),
         last_question = ('last', lambda x: (x=='?').sum()),
         last_question_double = ('last_consec2', lambda x: (x=='??').sum()),
-        last_exclamation = ('last', lambda x: (x=='!').sum())
-        # min_mean3 = ('sent_len_mean3', 'min'),
-        # max_mean3 = ('sent_len_mean3', 'max'),
-        # mean_mean3 = ('sent_len_mean3', 'mean'),
-        # min_mean8 = ('sent_len_mean8', 'min'),
-        # max_mean8 = ('sent_len_mean8', 'max'),
-        # mean_mean8 = ('sent_len_mean8', 'mean')
+        last_exclamation = ('last', lambda x: (x=='!').sum()),
+        min_mean3 = ('sent_len_mean3', 'min'),
+        max_mean3 = ('sent_len_mean3', 'max'),
+        min_mean8 = ('sent_len_mean8', 'min'),
+        max_mean8 = ('sent_len_mean8', 'max'),
+        min_mean12 = ('sent_len_mean12', 'min'),
+        max_mean12 = ('sent_len_mean12', 'max'),
     ).reset_index()
+
 
     df_first['first_three_four_comma'] = df_first['first_three_comma'] + df_first['first_four_comma']
     df_first = df_first.drop(['first_three_comma', 'first_four_comma'], axis=1)
