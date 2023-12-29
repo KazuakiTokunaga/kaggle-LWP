@@ -54,7 +54,6 @@ class RCFG:
     use_feature_rank = 500
     use_random_features = False
     threshold_random_features = 15
-    add_split_features = False
     exclude_outlier = False
     lgbm_params = {
         "objective": "regression",
@@ -456,14 +455,14 @@ def word_feats_v2(df):
     df_words = df.groupby('id').agg(
         word_feats_apostrophe_cnt = ('word', lambda x: ((x.str.endswith("'q")) & (x.str.len()<=5)).sum()),
         word_feats_long_apostrophe_cnt = ('word', lambda x: ((x.str.contains("'")) & (x.str.len()>=8)).sum()),
-        word_feats_mean_len_sum5 = ('word_len_sum5', 'mean'),
-        word_feats_median_len_sum5 = ('word_len_sum5', 'median'),
-        word_feats_q3_len_sum5 = ('word_len_sum5', q3),
-        word_feats_quantile90_len_sum5 = ('word_len_sum5', quantile90),
-        word_feats_mean_len_sum10 = ('word_len_sum10', 'mean'),
-        word_feats_median_len_sum10 = ('word_len_sum10', 'median'),
-        word_feats_q3_len_sum10 = ('word_len_sum10', q3),
-        word_feats_quantile90_len_sum10 = ('word_len_sum10', quantile90)
+        # word_feats_mean_len_sum5 = ('word_len_sum5', 'mean'),
+        # word_feats_median_len_sum5 = ('word_len_sum5', 'median'),
+        # word_feats_q3_len_sum5 = ('word_len_sum5', q3),
+        # word_feats_quantile90_len_sum5 = ('word_len_sum5', quantile90),
+        # word_feats_mean_len_sum10 = ('word_len_sum10', 'mean'),
+        # word_feats_median_len_sum10 = ('word_len_sum10', 'median'),
+        # word_feats_q3_len_sum10 = ('word_len_sum10', q3),
+        # word_feats_quantile90_len_sum10 = ('word_len_sum10', quantile90)
     ).reset_index()
     
     df_result = df_base.merge(df_words, on='id', how='left').fillna(0)
