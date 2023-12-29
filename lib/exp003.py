@@ -625,8 +625,8 @@ class Runner():
         feats = feats.merge(word_feats_v2(essays), on='id', how='left')
         feats = feats.merge(sent_feats_v2(essays), on='id', how='left')
 
-        logger.info('Add features based on comparison of essays at different timestamps.')
-        feats = feats.merge(essay_diff_feats(df, essays), on='id', how='left')
+        # logger.info('Add features based on comparison of essays at different timestamps.')
+        # feats = feats.merge(essay_diff_feats(df, essays), on='id', how='left')
 
         logger.info('Add other features.')
         feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
