@@ -454,9 +454,9 @@ def word_feats_v2(df):
 
     df_words = df.groupby('id').agg(
         word_feats_apostrophe_cnt = ('word', lambda x: ((x.str.endswith("'q")) & (x.str.len()<=5)).sum()),
-        word_feats_long_apostrophe_cnt = ('word', lambda x: ((x.str.contains("'")) & (x.str.len()>=8)).sum()),
-        word_feats_len35_len_sum5 = ('word_len_sum5', lambda x: (x>=35).sum()),
-        word_feats_median_len_sum10 = ('word_len_sum10', 'median')
+        # word_feats_long_apostrophe_cnt = ('word', lambda x: ((x.str.contains("'")) & (x.str.len()>=8)).sum()),
+        # word_feats_len35_len_sum5 = ('word_len_sum5', lambda x: (x>=35).sum()),
+        # word_feats_median_len_sum10 = ('word_len_sum10', 'median')
         # word_feats_mean_len_sum5 = ('word_len_sum5', 'mean'),
         # word_feats_median_len_sum5 = ('word_len_sum5', 'median'),
         # word_feats_q3_len_sum5 = ('word_len_sum5', q3),
@@ -496,7 +496,7 @@ def sent_feats_v2(df):
         sent_feats_first_three_comma = ('first_three', lambda x: ((x != '') & (x.str.endswith(','))).sum()),
         sent_feats_first_four_comma = ('first_four', lambda x: ((x != '') & (x.str.endswith(','))).sum()),
         sent_feats_first_eight_mean = ('fist_eight_len', 'mean'),
-        sent_feats_after_apostroph = ('sent', lambda x: (x.str.contains(".{20,}'")).sum()),
+        # sent_feats_after_apostroph = ('sent', lambda x: (x.str.contains(".{20,}'")).sum()),
         sent_feats_hyphen = ('sent', lambda x: (x.str.contains('-')).sum()),
         sent_feats_double_hyphen = ('sent', lambda x: (x.str.count('-')==2).sum()),
         sent_feats_long_hyphen = ('sent', lambda x: (x.str.contains('-.{30,}')).sum()),
