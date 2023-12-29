@@ -199,7 +199,7 @@ def dev_feats(df):
     )
     feats = feats.join(temp, on='id', how='left')
 
-    logger.info("Input words stats features")
+    # texxt_change. ないほうがCVには良いがLBには悪い
     temp = df.filter((~pl.col('text_change').str.contains('=>')) & (pl.col('text_change') != 'NoChange'))
     temp = temp.group_by('id').agg(pl.col('text_change').str.concat('').str.extract_all(r'q+'))
     temp = temp.with_columns(
@@ -274,8 +274,8 @@ def dev_feats(df):
         pl.count('P-bursts').name.suffix('_count'),
         pl.median('P-bursts').name.suffix('_median'), 
         pl.max('P-bursts').name.suffix('_max'),
-        pl.first('P-bursts').name.suffix('_first'), 
-        pl.last('P-bursts').name.suffix('_last'),
+        # pl.first('P-bursts').name.suffix('_first'), 
+        # pl.last('P-bursts').name.suffix('_last'),
     )
     feats = feats.join(temp, on='id', how='left') 
 
@@ -307,8 +307,8 @@ def dev_feats(df):
         pl.std('R-bursts').name.suffix('_std'), 
         pl.median('R-bursts').name.suffix('_median'), 
         pl.max('R-bursts').name.suffix('_max'),
-        pl.first('R-bursts').name.suffix('_first'), 
-        pl.last('R-bursts').name.suffix('_last'),
+        # pl.first('R-bursts').name.suffix('_first'), 
+        # pl.last('R-bursts').name.suffix('_last'),
     )
     feats = feats.join(temp, on='id', how='left')
 
@@ -521,6 +521,7 @@ def sent_feats_v2(df):
     return df_result
 
 
+# edit_distance. CVには効果あるがLBには効果ない
 def essay_diff_feats(log, essay_df):
 
     essays_15min_df = get_essay_df(log[log['down_time']<=15*60*1000])
