@@ -444,10 +444,26 @@ def word_feats_v2(df):
     df_base = pd.DataFrame(df['id'].unique(), columns=['id'])
     df['word'] = df['essay'].apply(lambda x: re.split(' |\\n|\\.|\\?|\\!',x))
     df = df.explode('word')
+    df['word_len'] = df['word'].str.len()
+    df = df[df['word_len']>0].copy()
+
+    for i in range(1, 10):
+        df[f'word_lag{i}'] = df.groupby('id')['word'].shift(i)
+        df[f'word_len_lag{i}'] = df.groupby('id')['word_len'].shift(i)
+    df['word_len_sum5'] = df[['word_len'] + [f'word_len_lag{i}' for i in range(1, 5)]].sum(axis=1)
+    df['word_len_sum10'] = df[['word_len'] + [f'word_len_lag{i}' for i in range(1, 10)]].sum(axis=1)
 
     df_words = df.groupby('id').agg(
         word_feats_apostrophe_cnt = ('word', lambda x: ((x.str.endswith("'q")) & (x.str.len()<=5)).sum()),
         word_feats_long_apostrophe_cnt = ('word', lambda x: ((x.str.contains("'")) & (x.str.len()>=8)).sum()),
+        word_feats_mean_len_sum5 = ('word_len_sum5', 'mean'),
+        word_feats_median_len_sum5 = ('word_len_sum5', 'median'),
+        word_feats_q3_len_sum5 = ('word_len_sum5', q3),
+        word_feats_quantile90_len_sum5 = ('word_len_sum5', quantile90),
+        word_feats_mean_len_sum10 = ('word_len_sum10', 'mean'),
+        word_feats_median_len_sum10 = ('word_len_sum10', 'median'),
+        word_feats_q3_len_sum10 = ('word_len_sum10', q3),
+        word_feats_quantile90_len_sum10 = ('word_len_sum10', quantile90)
     ).reset_index()
     
     df_result = df_base.merge(df_words, on='id', how='left').fillna(0)
