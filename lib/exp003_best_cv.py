@@ -515,15 +515,15 @@ def essay_diff_feats(log, essay_df):
     df_total['len_final'] = df_total['essay'].str.len().fillna(0)
     df_total['len_15min'] = df_total['essay15'].str.len().fillna(0)
     df_total['len_25min'] = df_total['essay25'].str.len().fillna(0)
-    # df_total['len_15min_diff'] = df_total['len_final'] - df_total['len_15min']
-    # df_total['len_25min_diff'] = df_total['len_final'] - df_total['len_25min']
+    df_total['len_15min_diff'] = df_total['len_final'] - df_total['len_15min']
+    df_total['len_25min_diff'] = df_total['len_final'] - df_total['len_25min']
     
-    df_total['edit_distance_15min'] = df_total.apply(
-        lambda x: Levenshtein.distance(x['essay'], x['essay15']) if type(x['essay'])==str and type(x['essay15'])==str else 0, axis=1
-    )
-    df_total['edit_distance_25min'] = df_total.apply(
-        lambda x: Levenshtein.distance(x['essay'], x['essay25']) if type(x['essay'])==str and type(x['essay25'])==str else 0, axis=1
-    )
+    # df_total['edit_distance_15min'] = df_total.apply(
+    #     lambda x: Levenshtein.distance(x['essay'], x['essay15']) if type(x['essay'])==str and type(x['essay15'])==str else 0, axis=1
+    # )
+    # df_total['edit_distance_25min'] = df_total.apply(
+    #     lambda x: Levenshtein.distance(x['essay'], x['essay25']) if type(x['essay'])==str and type(x['essay25'])==str else 0, axis=1
+    # )
     
     def edit_distance_first(x):
         l = max(int(x['len_15min']) - 100, 1)
@@ -604,8 +604,8 @@ class Runner():
         feats = feats.merge(word_feats_v2(essays), on='id', how='left')
         feats = feats.merge(sent_feats_v2(essays), on='id', how='left')
 
-        # logger.info('Add features based on comparison of essays at different timestamps.')
-        # feats = feats.merge(essay_diff_feats(df, essays), on='id', how='left')
+        logger.info('Add features based on comparison of essays at different timestamps.')
+        feats = feats.merge(essay_diff_feats(df, essays), on='id', how='left')
 
         logger.info('Add other features.')
         feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
