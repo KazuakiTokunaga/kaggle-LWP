@@ -35,7 +35,7 @@ class ENV:
     on_kaggle = True
 
 class RCFG:
-    run_name = 'exp001'
+    run_name = 'exp003'
     debug = True
     debug_size = 100
     split_cnt = 5
