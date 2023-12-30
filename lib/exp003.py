@@ -456,6 +456,8 @@ def word_feats_v2(df):
         word_feats_apostrophe_cnt = ('word', lambda x: ((x.str.endswith("'q")) & (x.str.len()<=5)).sum()),
         word_feats_long_apostrophe_cnt = ('word', lambda x: ((x.str.contains("'")) & (x.str.len()>=8)).sum()),
         word_feats_len35_len_sum5 = ('word_len_sum5', lambda x: (x>=35).sum()),
+        word_feats_len60_len_sum10 = ('word_len_sum10', lambda x: (x>=60).sum()),
+        word_feats_median_len_sum5 = ('word_len_sum5', 'median'),
         word_feats_median_len_sum10 = ('word_len_sum10', 'median')
         # word_feats_mean_len_sum5 = ('word_len_sum5', 'mean'),
         # word_feats_median_len_sum5 = ('word_len_sum5', 'median'),
