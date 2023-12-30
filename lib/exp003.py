@@ -194,9 +194,12 @@ def dev_feats(df):
     logger.info("Numerical columns features")
     temp = df.group_by("id").agg(
         pl.sum('action_time').name.suffix('_sum'), 
-        pl.mean(['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_mean'), 
-        pl.std(['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_std'),
-        pl.median(['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_median'), 
+        pl.mean(['down_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_mean'), 
+        pl.std(['down_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_std'),
+        pl.median(['down_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_median'), 
+        # pl.mean(['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_mean'), 
+        # pl.std(['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_std'),
+        # pl.median(['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_median'), 
         pl.min(['down_time', 'up_time']).name.suffix('_min'), 
         pl.max(['event_id', 'down_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_max'),
         pl.quantile(['action_time', 'cursor_position', 'word_count'], 0.5).name.suffix('_quantile'),
