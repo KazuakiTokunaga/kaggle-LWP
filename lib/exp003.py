@@ -62,28 +62,13 @@ class RCFG:
         "n_estimators": 12001, 
         "verbosity": -1, 
         "reg_lambda": 0.3, 
-        "colsample_bytree": 0.8, 
-        "subsample": 0.8, 
+        "colsample_bytree": 0.9, 
+        "subsample": 0.9, 
         "learning_rate": 0.02, 
         "num_leaves": 22, 
         "max_depth": 6, 
         "min_child_samples": 18
     }
-    use_scaling = False
-    scaling_features = [
-        'word_len_count',
-        'word_len_mean',
-        'word_len_max',
-        'word_len_first',
-        'word_len_last',
-        'word_len_q1',
-        'word_len_median',
-        'word_len_q3',
-        'word_len_sum',
-        'word_len_quantile82',
-        'word_len_quantile90',
-        'word_len_quantile95'
-    ]
     fix_data = False
     use_weight = False
 
@@ -634,11 +619,6 @@ class Runner():
         feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
         feats = feats.merge(product_to_keys(df, essays), on='id', how='left')
         feats = feats.merge(create_shortcuts(df), on='id', how='left')
-
-
-        if RCFG.use_scaling:
-            logger.info('transform some features with standardscaler.')
-            feats[RCFG.scaling_features] = StandardScaler().fit_transform(feats[RCFG.scaling_features])
 
         # logger.info('Add CountVectorizer features.')
         # feats = feats.merge(get_countvectorizer_features(essays, mode=mode), on='id', how='left')
