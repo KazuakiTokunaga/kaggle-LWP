@@ -434,8 +434,8 @@ def word_feats_v2(df):
         word_feats_apostrophe_cnt = ('word', lambda x: ((x.str.endswith("'q")) & (x.str.len()<=5)).sum()),
         word_feats_long_apostrophe_cnt = ('word', lambda x: ((x.str.contains("'")) & (x.str.len()>=8)).sum()),
         word_feats_len35_len_sum5 = ('word_len_sum5', lambda x: (x>=35).sum()),
-        word_feats_len60_len_sum10 = ('word_len_sum10', lambda x: (x>=60).sum()),
-        word_feats_median_len_sum5 = ('word_len_sum5', 'median'),
+        # word_feats_len60_len_sum10 = ('word_len_sum10', lambda x: (x>=60).sum()),
+        # word_feats_median_len_sum5 = ('word_len_sum5', 'median'),
         word_feats_median_len_sum10 = ('word_len_sum10', 'median')
         # word_feats_mean_len_sum5 = ('word_len_sum5', 'mean'),
         # word_feats_median_len_sum5 = ('word_len_sum5', 'median'),
@@ -518,12 +518,12 @@ def essay_diff_feats(log, essay_df):
     # df_total['len_15min_diff'] = df_total['len_final'] - df_total['len_15min']
     # df_total['len_25min_diff'] = df_total['len_final'] - df_total['len_25min']
     
-    df_total['edit_distance_15min'] = df_total.apply(
-        lambda x: Levenshtein.distance(x['essay'], x['essay15']) if type(x['essay'])==str and type(x['essay15'])==str else 0, axis=1
-    )
-    df_total['edit_distance_25min'] = df_total.apply(
-        lambda x: Levenshtein.distance(x['essay'], x['essay25']) if type(x['essay'])==str and type(x['essay25'])==str else 0, axis=1
-    )
+    # df_total['edit_distance_15min'] = df_total.apply(
+    #     lambda x: Levenshtein.distance(x['essay'], x['essay15']) if type(x['essay'])==str and type(x['essay15'])==str else 0, axis=1
+    # )
+    # df_total['edit_distance_25min'] = df_total.apply(
+    #     lambda x: Levenshtein.distance(x['essay'], x['essay25']) if type(x['essay'])==str and type(x['essay25'])==str else 0, axis=1
+    # )
     
     def edit_distance_first(x):
         l = max(int(x['len_15min']) - 100, 1)
