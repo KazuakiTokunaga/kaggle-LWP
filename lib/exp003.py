@@ -4,21 +4,16 @@ import pickle
 import re
 import time
 import polars as pl
-from random import choice, choices
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
 from collections import Counter
 from collections import defaultdict
-from scipy import stats
 from scipy.stats import skew, kurtosis
 import polars as pl
-from sklearn import metrics, model_selection, preprocessing, linear_model, ensemble, decomposition, tree
+from sklearn import metrics, model_selection
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-from sklearn.model_selection import StratifiedKFold
-from sklearn.preprocessing import StandardScaler
 import lightgbm as lgb
-import copy
 import datetime
 import Levenshtein
 
@@ -54,7 +49,6 @@ class RCFG:
     use_feature_rank = 500
     use_random_features = False
     threshold_random_features = 15
-    exclude_outlier = False
     lgbm_params = {
         "objective": "regression",
         "metric": "rmse", 
@@ -70,7 +64,6 @@ class RCFG:
         "min_child_samples": 18
     }
     fix_data = False
-    use_weight = False
 
 
 activities = ['Input', 'Remove/Cut', 'Nonproduction', 'Replace', 'Paste']
@@ -561,7 +554,6 @@ def get_keys_pressed_per_second(logs):
     temp_df['keys_per_second'] = temp_df['keys_pressed'] / ((temp_df['max_up_time'] - temp_df['min_down_time']) / 1000)
     return temp_df[['id', 'keys_per_second']]
 
-        
 
 
 class Runner():
@@ -636,15 +628,6 @@ class Runner():
                 self.train_logs = fix_data(self.train_logs)
             train_feats = self._add_features(self.train_logs, mode='train')
             self.train_feats = train_feats.merge(self.train_scores, on='id', how='left')
-
-            if RCFG.exclude_outlier:
-                logger.info('Exclude outlier ids.')
-                exclude_ids = [
-                    "21bbc3f6","f58a6673","6763136d","9cdeaac5","29b7f2f6",
-                    "3e10785d","2d8a6af2","078a6196","cc995d97","f56f5478"
-                ]
-                self.train_feats = self.train_feats[~self.train_feats['id'].isin(exclude_ids)].reset_index(drop=True)
-
             self.train_feats.to_csv(f'{ENV.output_dir}train_feats.csv', index=False)
         else:
             logger.info(f'Load train data from {ENV.feature_dir}train_feats.csv.')
@@ -700,18 +683,13 @@ class Runner():
                 if not last: 
                     params['learning_rate'] = 0.05 
                     params['colsample_bytree'] = 0.6
-                
-                weight = None
-                if RCFG.use_weight:
-                    weight = y_train['score'].apply(lambda x: 1.25 if x <= 2.5 else 1)
 
                 model = lgb.LGBMRegressor(**params)
                 early_stopping_callback = lgb.early_stopping(200, first_metric_only=True, verbose=False)
                 verbose_callback = lgb.log_evaluation(100)
                 model.fit(
                     X_train, y_train, eval_set=[(X_valid, y_valid)],  
-                    callbacks=[early_stopping_callback, verbose_callback],
-                    sample_weight = weight
+                    callbacks=[early_stopping_callback, verbose_callback]
                 )
                 valid_predict = model.predict(X_valid)
                 oof_valid_preds[valid_idx] = valid_predict
