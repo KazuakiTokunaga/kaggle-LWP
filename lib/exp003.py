@@ -199,7 +199,7 @@ def dev_feats(df):
     )
     feats = feats.join(temp, on='id', how='left')
 
-    # texxt_change. ないほうがCVには良いがLBには悪い
+    # text_change. ないほうがCVには良いがLBには悪い
     temp = df.filter((~pl.col('text_change').str.contains('=>')) & (pl.col('text_change') != 'NoChange'))
     temp = temp.group_by('id').agg(pl.col('text_change').str.concat('').str.extract_all(r'q+'))
     temp = temp.with_columns(
@@ -274,8 +274,8 @@ def dev_feats(df):
         pl.count('P-bursts').name.suffix('_count'),
         pl.median('P-bursts').name.suffix('_median'), 
         pl.max('P-bursts').name.suffix('_max'),
-        pl.first('P-bursts').name.suffix('_first'), 
-        pl.last('P-bursts').name.suffix('_last'),
+        pl.first('P-bursts').name.suffix('_first'), # good for LB, bad for CV
+        pl.last('P-bursts').name.suffix('_last'), # good for LB, bad for CV
     )
     feats = feats.join(temp, on='id', how='left') 
 
@@ -307,8 +307,8 @@ def dev_feats(df):
         pl.std('R-bursts').name.suffix('_std'), 
         pl.median('R-bursts').name.suffix('_median'), 
         pl.max('R-bursts').name.suffix('_max'),
-        pl.first('R-bursts').name.suffix('_first'), 
-        pl.last('R-bursts').name.suffix('_last'),
+        pl.first('R-bursts').name.suffix('_first'), # good for LB, bad for CV
+        pl.last('R-bursts').name.suffix('_last'), # good for LB, bad for CV
     )
     feats = feats.join(temp, on='id', how='left')
 
@@ -456,7 +456,7 @@ def word_feats_v2(df):
         word_feats_apostrophe_cnt = ('word', lambda x: ((x.str.endswith("'q")) & (x.str.len()<=5)).sum()),
         word_feats_long_apostrophe_cnt = ('word', lambda x: ((x.str.contains("'")) & (x.str.len()>=8)).sum()),
         word_feats_len35_len_sum5 = ('word_len_sum5', lambda x: (x>=35).sum()),
-        # word_feats_median_len_sum10 = ('word_len_sum10', 'median')
+        word_feats_median_len_sum10 = ('word_len_sum10', 'median')
         # word_feats_mean_len_sum5 = ('word_len_sum5', 'mean'),
         # word_feats_median_len_sum5 = ('word_len_sum5', 'median'),
         # word_feats_q3_len_sum5 = ('word_len_sum5', q3),
