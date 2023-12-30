@@ -294,6 +294,19 @@ def dev_feats(df):
     feats = feats.join(temp, on='id', how='left')
 
 
+    temp = df.group_by('id').agg(
+        ((pl.col('activity')=='Input') & (pl.col('text_change')=="q")).sum().alias('activity_Input_q_cnt'),
+        ((pl.col('activity')=='Input') & (pl.col('text_change')==" ")).sum().alias('activity_Input_space_cnt')
+    )
+    feats = feats.join(temp, on='id', how='left')
+    feats = feats.with_columns(
+        (pl.col('activity_Remove/Cut_cnt') / pl.col('activity_Input_cnt')).alias('activity_input_remove_rate'),
+        (pl.col('activity_Input_q_cnt') / pl.col('activity_Input_cnt')).alias('activity_input_q_rate'),
+        (pl.col('activity_Input_space_cnt') / pl.col('activity_Input_cnt')).alias('activity_input_space_rate'),
+        (pl.col('down_event_Shift_cnt') / pl.col('activity_Input_cnt')).alias('activity_input_shift_rate')
+    ).drop('activity_Input_q_cnt', 'activity_Input_space_cnt')
+
+
     return feats
 
 
@@ -558,7 +571,6 @@ def get_keys_pressed_per_second(logs):
     return temp_df[['id', 'keys_per_second']]
 
 
-
 class Runner():
 
     def __init__(
@@ -617,6 +629,8 @@ class Runner():
 
         # logger.info('Add CountVectorizer features.')
         # feats = feats.merge(get_countvectorizer_features(essays, mode=mode), on='id', how='left')
+
+        feats['comma_sent_len_rate'] = feats['down_event_comma_cnt'] / feats['sent_len_sum']
 
         return feats
 
