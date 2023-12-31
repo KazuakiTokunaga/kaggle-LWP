@@ -302,7 +302,7 @@ def dev_feats(df):
         'event_id_max_25min', 
         'event_id_max_20min', 
         'cursor_position_max_25min', 
-        'corsor_position_max_20min', 
+        'cursor_position_max_20min', 
         'word_count_max_25min',
         'word_count_max_20min'
     )
@@ -631,6 +631,8 @@ class Runner():
         # feats = feats.merge(get_countvectorizer_features(essays, mode=mode), on='id', how='left')
 
         feats['comma_sent_len_rate'] = feats['down_event_comma_cnt'] / feats['sent_len_sum']
+        feats['sent_feats_first_two_word_short_rate'] = feats['sent_feats_first_two_word_short'] / feats['sent_count']
+        feats = feats.drop(['sent_feats_first_two_word_short'], axis=1)
 
         return feats
 
