@@ -173,7 +173,9 @@ def dev_feats(df):
 
     temp = df.group_by('id').agg(
         ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==" ")).sum().alias('delete_space_cnt'),
-        ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==",")).sum().alias('delete_comma_cnt')
+        ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==",")).sum().alias('delete_comma_cnt'),
+        (pl.col('down_time').filter(pl.col('activity')=='Input').min().alias('first_input_down_time')),
+        (pl.col('down_time').filter(pl.col('activity')=='Remove/Cut').min().alias('first_remove_down_time'))
     )
     feats = feats.join(temp, on='id', how='left')
 
