@@ -55,13 +55,13 @@ class RCFG:
         "random_state": 42, 
         "n_estimators": 12001, 
         "verbosity": -1, 
-        "reg_lambda": 0.3, 
+        "reg_lambda": 0.1, 
         "colsample_bytree": 0.8, 
         "subsample": 0.8, 
         "learning_rate": 0.02, 
-        "num_leaves": 22, 
-        "max_depth": 6, 
-        "min_child_samples": 18
+        "num_leaves": 11, 
+        "max_depth": 4, 
+        "min_child_samples": 15
     }
     fix_data = False
 
