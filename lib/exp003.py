@@ -254,8 +254,8 @@ def dev_feats(df):
         pl.count('P-bursts').name.suffix('_count'),
         pl.median('P-bursts').name.suffix('_median'), 
         pl.max('P-bursts').name.suffix('_max'),
-        # pl.first('P-bursts').name.suffix('_first'), # good for LB, bad for CV
-        # pl.last('P-bursts').name.suffix('_last'), # good for LB, bad for CV
+        pl.first('P-bursts').name.suffix('_first'), # good for LB, bad for CV
+        pl.last('P-bursts').name.suffix('_last'), # good for LB, bad for CV
     )
     feats = feats.join(temp, on='id', how='left') 
 
@@ -287,8 +287,8 @@ def dev_feats(df):
         pl.std('R-bursts').name.suffix('_std'), 
         pl.median('R-bursts').name.suffix('_median'), 
         pl.max('R-bursts').name.suffix('_max'),
-        # pl.first('R-bursts').name.suffix('_first'), # good for LB, bad for CV
-        # pl.last('R-bursts').name.suffix('_last'), # good for LB, bad for CV
+        pl.first('R-bursts').name.suffix('_first'), # good for LB, bad for CV
+        pl.last('R-bursts').name.suffix('_last'), # good for LB, bad for CV
     )
     feats = feats.join(temp, on='id', how='left')
 
@@ -458,7 +458,7 @@ def word_feats_v2(df):
         # word_feats_mean_len_sum5 = ('word_len_sum5', 'mean'),
         # word_feats_median_len_sum5 = ('word_len_sum5', 'median'),
         # word_feats_q3_len_sum5 = ('word_len_sum5', q3),
-        word_feats_quantile90_len_sum5 = ('word_len_sum5', quantile95)
+        word_feats_quantile95_len_sum5 = ('word_len_sum5', quantile95)
         # word_feats_mean_len_sum10 = ('word_len_sum10', 'mean'),
         # word_feats_q3_len_sum10 = ('word_len_sum10', q3),
         # word_feats_quantile90_len_sum10 = ('word_len_sum10', quantile90)
