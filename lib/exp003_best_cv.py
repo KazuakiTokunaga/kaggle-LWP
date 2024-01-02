@@ -56,12 +56,12 @@ class RCFG:
         "n_estimators": 12001, 
         "verbosity": -1, 
         "reg_lambda": 0.1, 
-        "colsample_bytree": 0.8, 
-        "subsample": 0.8, 
-        "learning_rate": 0.1, 
-        "num_leaves": 11, 
+        "colsample_bytree": 0.7, 
+        "subsample": 0.75, 
+        "learning_rate": 0.02, 
+        "num_leaves": 12, 
         "max_depth": 4, 
-        "min_child_samples": 15
+        "min_child_samples": 18
     }
     fix_data = False
 
