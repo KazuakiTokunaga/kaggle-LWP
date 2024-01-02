@@ -173,18 +173,18 @@ def dev_feats(df):
 
     temp = df.group_by('id').agg(
         ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==" ")).sum().alias('delete_space_cnt'),
-        ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==",")).sum().alias('delete_comma_cnt')
-        # (pl.col('down_time').filter(pl.col('activity')=='Input').min().alias('first_input_down_time')),
-        # (pl.col('down_time').filter(pl.col('activity')=='Remove/Cut').min().alias('first_remove_down_time'))
+        ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==",")).sum().alias('delete_comma_cnt'),
+        (pl.col('down_time').filter(pl.col('activity')=='Input').min().alias('first_input_down_time')),
+        (pl.col('down_time').filter(pl.col('activity')=='Remove/Cut').min().alias('first_remove_down_time'))
     )
     feats = feats.join(temp, on='id', how='left')
     
     logger.info("Numerical columns features")
     temp = df.group_by("id").agg(
-        pl.sum('action_time').name.suffix('_sum'),  
-        pl.mean(['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_mean'), 
-        pl.std(['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_std'),
-        pl.median(['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_median'), 
+        pl.sum('action_time').name.suffix('_sum'), 
+        pl.mean(['down_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_mean'), 
+        pl.std(['down_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_std'),
+        pl.median(['down_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_median'), 
         pl.min(['down_time', 'up_time']).name.suffix('_min'), 
         pl.max(['event_id', 'down_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_max'),
         pl.quantile(['action_time', 'cursor_position', 'word_count'], 0.5).name.suffix('_quantile'),
