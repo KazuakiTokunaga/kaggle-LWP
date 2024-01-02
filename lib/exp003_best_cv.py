@@ -35,7 +35,7 @@ class ENV:
     on_kaggle = True
 
 class RCFG:
-    run_name = 'exp003-best-cv'
+    run_name = 'exp003'
     debug = True
     debug_size = 100
     split_cnt = 5
@@ -56,12 +56,12 @@ class RCFG:
         "n_estimators": 12001, 
         "verbosity": -1, 
         "reg_lambda": 0.1, 
-        "colsample_bytree": 0.7, 
+        "colsample_bytree": 0.8, 
         "subsample": 0.75, 
-        "learning_rate": 0.01, 
-        "num_leaves": 12, 
-        "max_depth": 4, 
-        "min_child_samples": 18
+        "learning_rate": 0.01,
+        "num_leaves": 19,
+        "max_depth": 5, 
+        "min_child_samples": 22
     }
     fix_data = False
 
@@ -173,18 +173,32 @@ def dev_feats(df):
 
     temp = df.group_by('id').agg(
         ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==" ")).sum().alias('delete_space_cnt'),
-        ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==",")).sum().alias('delete_comma_cnt')
-        # (pl.col('down_time').filter(pl.col('activity')=='Input').min().alias('first_input_down_time')),
-        # (pl.col('down_time').filter(pl.col('activity')=='Remove/Cut').min().alias('first_remove_down_time'))
+        ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==",")).sum().alias('delete_comma_cnt'),
+        (pl.col('down_time').filter(pl.col('activity')=='Input').min().alias('first_input_down_time')),
+        (pl.col('down_time').filter(pl.col('activity')=='Remove/Cut').min().alias('first_remove_down_time'))
     )
     feats = feats.join(temp, on='id', how='left')
+
+    # text_change. ないほうがCVには良いがLBには悪い
+    # temp = df.filter((~pl.col('text_change').str.contains('=>')) & (pl.col('text_change') != 'NoChange'))
+    # temp = temp.group_by('id').agg(pl.col('text_change').str.concat('').str.extract_all(r'q+'))
+    # temp = temp.with_columns(
+    #     input_word_count = pl.col('text_change').list.len(),
+    #     input_word_length_mean = pl.col('text_change').map_elements(lambda x: np.mean([len(i) for i in x] if len(x) > 0 else 0)),
+    #     input_word_length_max = pl.col('text_change').map_elements(lambda x: np.max([len(i) for i in x] if len(x) > 0 else 0)),
+    #     input_word_length_std = pl.col('text_change').map_elements(lambda x: np.std([len(i) for i in x] if len(x) > 0 else 0)),
+    #     input_word_length_skew = pl.col('text_change').map_elements(lambda x: skew([len(i) for i in x] if len(x) > 0 else 0))
+    # )
+    # temp = temp.drop('text_change')
+    # feats = feats.join(temp, on='id', how='left') 
+
     
     logger.info("Numerical columns features")
     temp = df.group_by("id").agg(
-        pl.sum('action_time').name.suffix('_sum'),  
-        pl.mean(['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_mean'), 
-        pl.std(['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_std'),
-        pl.median(['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_median'), 
+        pl.sum('action_time').name.suffix('_sum'), 
+        pl.mean(['down_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_mean'), 
+        pl.std(['down_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_std'),
+        pl.median(['down_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_median'), 
         pl.min(['down_time', 'up_time']).name.suffix('_min'), 
         pl.max(['event_id', 'down_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_max'),
         pl.quantile(['action_time', 'cursor_position', 'word_count'], 0.5).name.suffix('_quantile'),
@@ -277,6 +291,7 @@ def dev_feats(df):
         # pl.last('R-bursts').name.suffix('_last'), # good for LB, bad for CV
     )
     feats = feats.join(temp, on='id', how='left')
+
 
     feats = feats.with_columns(
         (pl.col('event_id_max_25min') / pl.col('event_id_max')).alias('event_id_max_25min_rate'),
@@ -436,14 +451,14 @@ def word_feats_v2(df):
     df_words = df.groupby('id').agg(
         word_feats_apostrophe_cnt = ('word', lambda x: ((x.str.endswith("'q")) & (x.str.len()<=5)).sum()),
         word_feats_long_apostrophe_cnt = ('word', lambda x: ((x.str.contains("'")) & (x.str.len()>=8)).sum()),
-        word_feats_len35_len_sum5 = ('word_len_sum5', lambda x: (x>=35).sum()),
+        # word_feats_len35_len_sum5 = ('word_len_sum5', lambda x: (x>=35).sum()),
         # word_feats_len60_len_sum10 = ('word_len_sum10', lambda x: (x>=60).sum()),
         # word_feats_median_len_sum5 = ('word_len_sum5', 'median'),
-        word_feats_median_len_sum10 = ('word_len_sum10', 'median')
+        word_feats_median_len_sum10 = ('word_len_sum10', 'median'),
         # word_feats_mean_len_sum5 = ('word_len_sum5', 'mean'),
         # word_feats_median_len_sum5 = ('word_len_sum5', 'median'),
         # word_feats_q3_len_sum5 = ('word_len_sum5', q3),
-        # word_feats_quantile90_len_sum5 = ('word_len_sum5', quantile90),
+        word_feats_quantile90_len_sum5 = ('word_len_sum5', quantile95)
         # word_feats_mean_len_sum10 = ('word_len_sum10', 'mean'),
         # word_feats_q3_len_sum10 = ('word_len_sum10', q3),
         # word_feats_quantile90_len_sum10 = ('word_len_sum10', quantile90)
@@ -556,7 +571,6 @@ def get_keys_pressed_per_second(logs):
     temp_df = temp_df.merge(temp_df_2, on='id', how='left')
     temp_df['keys_per_second'] = temp_df['keys_pressed'] / ((temp_df['max_up_time'] - temp_df['min_down_time']) / 1000)
     return temp_df[['id', 'keys_per_second']]
-
 
 
 class Runner():
