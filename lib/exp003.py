@@ -366,12 +366,9 @@ def get_essay_df(df):
 
 
 def word_feats(df):
-
-    df_base = pd.DataFrame(df['id'].unique(), columns=['id'])
-
     df['word'] = df['essay'].apply(lambda x: re.split(' |\\n|\\.|\\?|\\!',x))
     df = df.explode('word')
-    df['word_len'] = df['word'].str.len()
+    df['word_len'] = df['word'].apply(lambda x: len(x))
     df = df[df['word_len'] != 0]
 
     word_agg_df = df[['id','word_len']].groupby(['id']).agg(
@@ -380,24 +377,7 @@ def word_feats(df):
     word_agg_df.columns = ['_'.join(x) for x in word_agg_df.columns]
     word_agg_df['id'] = word_agg_df.index
     word_agg_df = word_agg_df.reset_index(drop=True)
-
-    for i in range(1, 10):
-        df[f'word_lag{i}'] = df.groupby('id')['word'].shift(i)
-        df[f'word_len_lag{i}'] = df.groupby('id')['word_len'].shift(i)
-    df['word_len_sum5'] = df[['word_len'] + [f'word_len_lag{i}' for i in range(1, 5)]].sum(axis=1)
-    df['word_len_sum10'] = df[['word_len'] + [f'word_len_lag{i}' for i in range(1, 10)]].sum(axis=1)
-
-    df_words = df.groupby('id').agg(
-        word_feats_apostrophe_cnt = ('word', lambda x: ((x.str.endswith("'q")) & (x.str.len()<=5)).sum()),
-        word_feats_long_apostrophe_cnt = ('word', lambda x: ((x.str.contains("'")) & (x.str.len()>=8)).sum()),
-        word_feats_len35_len_sum5 = ('word_len_sum5', lambda x: (x>=35).sum()),
-        word_feats_median_len_sum10 = ('word_len_sum10', 'median')
-    ).reset_index()
-    
-    df_result = df_base.merge(word_agg_df, on='id', how='left')
-    df_result = df_result.merge(df_words, on='id', how='left').fillna(0)
-
-    return df_result
+    return word_agg_df
 
 
 def sent_feats(df):
@@ -438,6 +418,30 @@ def parag_feats(df):
     paragraph_agg_df = paragraph_agg_df.rename(columns={"paragraph_len_count":"paragraph_count"})
     return paragraph_agg_df
 
+def word_feats_v2(df):
+    
+    df_base = pd.DataFrame(df['id'].unique(), columns=['id'])
+    df['word'] = df['essay'].apply(lambda x: re.split(' |\\n|\\.|\\?|\\!',x))
+    df = df.explode('word')
+    df['word_len'] = df['word'].str.len()
+    df = df[df['word_len']>0].copy()
+
+    for i in range(1, 10):
+        df[f'word_lag{i}'] = df.groupby('id')['word'].shift(i)
+        df[f'word_len_lag{i}'] = df.groupby('id')['word_len'].shift(i)
+    df['word_len_sum5'] = df[['word_len'] + [f'word_len_lag{i}' for i in range(1, 5)]].sum(axis=1)
+    df['word_len_sum10'] = df[['word_len'] + [f'word_len_lag{i}' for i in range(1, 10)]].sum(axis=1)
+
+    df_words = df.groupby('id').agg(
+        word_feats_apostrophe_cnt = ('word', lambda x: ((x.str.endswith("'q")) & (x.str.len()<=5)).sum()),
+        word_feats_long_apostrophe_cnt = ('word', lambda x: ((x.str.contains("'")) & (x.str.len()>=8)).sum()),
+        word_feats_len35_len_sum5 = ('word_len_sum5', lambda x: (x>=35).sum()),
+        word_feats_median_len_sum10 = ('word_len_sum10', 'median')
+    ).reset_index()
+    
+    df_result = df_base.merge(df_words, on='id', how='left').fillna(0)
+
+    return df_result
 
 def sent_feats_v2(df):
 
@@ -547,15 +551,13 @@ class Runner():
         feats = dev_feats(pl.from_pandas(df))
         feats = feats.to_pandas()
     
-        logger.info('Add essay features.')
+        logger.info('Add simple essay features.')
         essays = get_essay_df(df)
         feats = feats.merge(word_feats(essays), on='id', how='left')
         feats = feats.merge(sent_feats(essays), on='id', how='left')
-        feats = feats.merge(sent_feats_v2(essays), on='id', how='left')
         feats = feats.merge(parag_feats(essays), on='id', how='left')
-
-        logger.info('Add features based on comparison of essays at different timestamps.')
-        feats = feats.merge(essay_diff_feats(df, essays), on='id', how='left')
+        feats = feats.merge(word_feats_v2(essays), on='id', how='left')
+        feats = feats.merge(sent_feats_v2(essays), on='id', how='left')
 
         logger.info('Add other features.')
         feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
