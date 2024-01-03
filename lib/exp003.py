@@ -492,12 +492,7 @@ def essay_diff_feats(log, essay_df):
 
     essays_15min_df = get_essay_df(log[log['down_time']<=15*60*1000])
     essays_15min_df.rename(columns={'essay': 'essay15'}, inplace=True)
-
-    essays_25min_df = get_essay_df(log[log['down_time']<=25*60*1000])
-    essays_25min_df.rename(columns={'essay': 'essay25'}, inplace=True)
-
     df_total = essay_df[['id', 'essay']].merge(essays_15min_df, on='id', how='left')
-    df_total = df_total.merge(essays_25min_df, on='id', how='left')
     df_total['len_15min'] = df_total['essay15'].str.len().fillna(0)
     
     def edit_distance_first(x):
@@ -509,7 +504,7 @@ def essay_diff_feats(log, essay_df):
             return Levenshtein.distance(e[:l], e15[:l])
     
     df_total['edit_distance_first_15min'] = df_total.apply(edit_distance_first, axis=1)
-    df_total.drop(['essay', 'essay15', 'essay25', 'len_15min'], axis=1, inplace=True)
+    df_total.drop(['essay', 'essay15', 'len_15min'], axis=1, inplace=True)
 
     return df_total
 
@@ -552,7 +547,7 @@ class Runner():
         feats = dev_feats(pl.from_pandas(df))
         feats = feats.to_pandas()
     
-        logger.info('Add simple essay features.')
+        logger.info('Add essay features.')
         essays = get_essay_df(df)
         feats = feats.merge(word_feats(essays), on='id', how='left')
         feats = feats.merge(sent_feats(essays), on='id', how='left')
@@ -623,7 +618,6 @@ class Runner():
                         self.train_cols = [c for c in self.train_cols if not c.startswith('dummy_random')]
                     else:
                         self.train_cols = feature_df[feature_df.index <= RCFG.use_feature_rank]['feature'].tolist()
-                        # self.train_cols = feature_df[(~feature_df['feature'].str.contains('ngram')) | (feature_df.index <= RCFG.use_feature_rank)]['feature'].tolist()
                         
                     if seed_id == 0:
                         logger.info(f'self.train_cols: {len(self.train_cols)}')
@@ -773,4 +767,3 @@ class Runner():
         logger.info('Save submission.csv')
         self.test_feats['score'] = np.mean(test_predict_list, axis=0)
         self.test_feats[['id', 'score']].to_csv("submission.csv", index=False)
-
