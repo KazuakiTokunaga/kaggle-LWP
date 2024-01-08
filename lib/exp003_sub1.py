@@ -1,29 +1,16 @@
-# https://www.kaggle.com/code/hiarsl/feature-engineering-sentence-paragraph-features
-
-import gc
-import os
-import itertools
 import pickle
 import re
-import time
 import polars as pl
-from random import choice, choices
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
-from collections import Counter
-from collections import defaultdict
-from itertools import cycle
-from scipy import stats
-from scipy.stats import skew, kurtosis
+from scipy.stats import skew
 import polars as pl
-from sklearn import metrics, model_selection, preprocessing, linear_model, ensemble, decomposition, tree
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-from sklearn.model_selection import StratifiedKFold
-from sklearn.preprocessing import StandardScaler
+from sklearn import metrics, model_selection
+from sklearn.feature_extraction.text import CountVectorizer
 import lightgbm as lgb
-import copy
 import datetime
+import Levenshtein
 
 from utils.utils import Logger, WriteSheet
 from utils.utils import class_vars_to_dict
@@ -43,7 +30,7 @@ class ENV:
     on_kaggle = True
 
 class RCFG:
-    run_name = 'exp001'
+    run_name = 'exp003'
     debug = True
     debug_size = 100
     split_cnt = 5
@@ -57,39 +44,21 @@ class RCFG:
     use_feature_rank = 500
     use_random_features = False
     threshold_random_features = 15
-    add_split_features = False
-    exclude_outlier = False
     lgbm_params = {
         "objective": "regression",
         "metric": "rmse", 
         "random_state": 42, 
         "n_estimators": 12001, 
         "verbosity": -1, 
-        "reg_lambda": 0.3, 
+        "reg_lambda": 0.1, 
         "colsample_bytree": 0.8, 
-        "subsample": 0.8, 
-        "learning_rate": 0.02, 
-        "num_leaves": 22, 
-        "max_depth": 6, 
-        "min_child_samples": 18
+        "subsample": 0.75, 
+        "learning_rate": 0.01,
+        "num_leaves": 19,
+        "max_depth": 5, 
+        "min_child_samples": 22
     }
-    use_scaling = False
-    scaling_features = [
-        'word_len_count',
-        'word_len_mean',
-        'word_len_max',
-        'word_len_first',
-        'word_len_last',
-        'word_len_q1',
-        'word_len_median',
-        'word_len_q3',
-        'word_len_sum',
-        'word_len_quantile82',
-        'word_len_quantile90',
-        'word_len_quantile95'
-    ]
     fix_data = False
-    use_weight = False
 
 
 activities = ['Input', 'Remove/Cut', 'Nonproduction', 'Replace', 'Paste']
@@ -102,29 +71,6 @@ special_char_to_text = {
     '%': 'percent', '^': 'caret', '&': 'ampersand', '*': 'asterisk', '(': 'left_parenthesis',
     ')': 'right_parenthesis', '_': 'underscore',
 }
-
-def get_countvectorizer_features(df, ngram=(2,3), thre=0.03, mode='train'):
-
-    if mode == 'train':
-        count_vectorizer = CountVectorizer(ngram_range=ngram, min_df=thre)
-        count_vectorizer.fit(df['essay'])
-
-        logger.info(f'Save CountVectorizer as {ENV.output_dir}count_vectorizer.pickle.')
-        with open(f'{ENV.output_dir}count_vectorizer.pickle', mode='wb') as f:
-            pickle.dump(count_vectorizer, f)
-    else:
-        logger.info(f'Load CountVectorizer from {ENV.model_dir}.')
-        with open(f'{ENV.model_dir}count_vectorizer.pickle', mode='rb') as f:
-            count_vectorizer = pickle.load(f)
-
-    X_tokenizer_train = count_vectorizer.transform(df['essay']).todense()
-    df_train_index = pd.Index(df['id'].unique(), name = 'id')
-    feature_names = count_vectorizer.get_feature_names_out()
-
-    df_result = pd.DataFrame(data=X_tokenizer_train, index = df_train_index, columns=feature_names)
-    df_result.columns = [f"{c.replace(' ', '_')}_ngram" for c in df_result.columns]
-
-    return df_result
 
 
 def count_by_values(df, colname, values, suffix=""):
@@ -181,7 +127,6 @@ def fix_data(df):
         idx = (df['id']==data['id']) & (df['event_id']>=data['event_id'])
         df.loc[idx, 'down_time'] -= adjust
         df.loc[idx, 'up_time'] -= adjust
-        
     
     return df
         
@@ -199,11 +144,13 @@ def dev_feats(df):
 
     temp = df.group_by('id').agg(
         ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==" ")).sum().alias('delete_space_cnt'),
-        ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==",")).sum().alias('delete_comma_cnt')
+        ((pl.col('activity')=='Remove/Cut') & (pl.col('text_change')==",")).sum().alias('delete_comma_cnt'),
+        (pl.col('down_time').filter(pl.col('activity')=='Input').min().alias('first_input_down_time')),
+        (pl.col('down_time').filter(pl.col('activity')=='Remove/Cut').min().alias('first_remove_down_time'))
     )
     feats = feats.join(temp, on='id', how='left')
 
-    logger.info("Input words stats features")
+    # text_change. ないほうがCVには良いがLBには悪い
     temp = df.filter((~pl.col('text_change').str.contains('=>')) & (pl.col('text_change') != 'NoChange'))
     temp = temp.group_by('id').agg(pl.col('text_change').str.concat('').str.extract_all(r'q+'))
     temp = temp.with_columns(
@@ -220,9 +167,9 @@ def dev_feats(df):
     logger.info("Numerical columns features")
     temp = df.group_by("id").agg(
         pl.sum('action_time').name.suffix('_sum'), 
-        pl.mean(['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_mean'), 
-        pl.std(['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_std'),
-        pl.median(['down_time', 'up_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_median'), 
+        pl.mean(['down_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_mean'), 
+        pl.std(['down_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_std'),
+        pl.median(['down_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_median'), 
         pl.min(['down_time', 'up_time']).name.suffix('_min'), 
         pl.max(['event_id', 'down_time', 'action_time', 'cursor_position', 'word_count']).name.suffix('_max'),
         pl.quantile(['action_time', 'cursor_position', 'word_count'], 0.5).name.suffix('_quantile'),
@@ -278,8 +225,8 @@ def dev_feats(df):
         pl.count('P-bursts').name.suffix('_count'),
         pl.median('P-bursts').name.suffix('_median'), 
         pl.max('P-bursts').name.suffix('_max'),
-        pl.first('P-bursts').name.suffix('_first'), 
-        pl.last('P-bursts').name.suffix('_last'),
+        pl.first('P-bursts').name.suffix('_first'), # good for LB, bad for CV
+        pl.last('P-bursts').name.suffix('_last'), # good for LB, bad for CV
     )
     feats = feats.join(temp, on='id', how='left') 
 
@@ -311,11 +258,27 @@ def dev_feats(df):
         pl.std('R-bursts').name.suffix('_std'), 
         pl.median('R-bursts').name.suffix('_median'), 
         pl.max('R-bursts').name.suffix('_max'),
-        pl.first('R-bursts').name.suffix('_first'), 
-        pl.last('R-bursts').name.suffix('_last'),
+        pl.first('R-bursts').name.suffix('_first'), # good for LB, bad for CV
+        pl.last('R-bursts').name.suffix('_last'), # good for LB, bad for CV
     )
     feats = feats.join(temp, on='id', how='left')
 
+
+    feats = feats.with_columns(
+        (pl.col('event_id_max_25min') / pl.col('event_id_max')).alias('event_id_max_25min_rate'),
+        (pl.col('event_id_max_20min') / pl.col('event_id_max')).alias('event_id_max_20min_rate'),
+        (pl.col('cursor_position_max_25min') / pl.col('cursor_position_max')).alias('cursor_position_max_25min_rate'),
+        (pl.col('cursor_position_max_20min') / pl.col('cursor_position_max')).alias('cursor_position_max_20min_rate'),
+        (pl.col('word_count_max_25min') / pl.col('word_count_max')).alias('word_count_max_25min_rate'),
+        (pl.col('word_count_max_20min') / pl.col('word_count_max')).alias('word_count_max_20min_rate'),
+    ).drop(
+        'event_id_max_25min', 
+        'event_id_max_20min', 
+        'cursor_position_max_25min', 
+        'cursor_position_max_20min', 
+        'word_count_max_25min',
+        'word_count_max_20min'
+    )
 
     return feats
 
@@ -336,6 +299,22 @@ def create_shortcuts(df):
     kb_shortcut_df['ctrl_shift_count'] = ctrl_left_df['count'] + ctrl_right_df['count'] + ctrl_shift_left_df['count'] + ctrl_shift_right_df['count']
 
     return kb_shortcut_df
+
+def product_to_keys(logs, essays):
+    essays['product_len'] = essays.essay.str.len()
+    tmp_df = logs[logs.activity.isin(['Input', 'Remove/Cut'])].groupby(['id']).agg({'activity': 'count'}).reset_index().rename(columns={'activity': 'keys_pressed'})
+    essays = essays.merge(tmp_df, on='id', how='left')
+    essays['product_to_keys'] = essays['product_len'] / essays['keys_pressed']
+    return essays[['id', 'product_to_keys']]
+
+
+def get_keys_pressed_per_second(logs):
+    temp_df = logs[logs['activity'].isin(['Input', 'Remove/Cut'])].groupby(['id']).agg(keys_pressed=('event_id', 'count')).reset_index()
+    temp_df_2 = logs.groupby(['id']).agg(min_down_time=('down_time', 'min'), max_up_time=('up_time', 'max')).reset_index()
+    temp_df = temp_df.merge(temp_df_2, on='id', how='left')
+    temp_df['keys_per_second'] = temp_df['keys_pressed'] / ((temp_df['max_up_time'] - temp_df['min_down_time']) / 1000)
+    return temp_df[['id', 'keys_per_second']]
+
 
 def q1(x):
     return x.quantile(0.25)
@@ -387,7 +366,6 @@ def get_essay_df(df):
 
 
 def word_feats(df):
-    essay_df = df
     df['word'] = df['essay'].apply(lambda x: re.split(' |\\n|\\.|\\?|\\!',x))
     df = df.explode('word')
     df['word_len'] = df['word'].apply(lambda x: len(x))
@@ -403,12 +381,11 @@ def word_feats(df):
 
 
 def sent_feats(df):
+    
     df['sent'] = df['essay'].apply(lambda x: re.split('\\.|\\?|\\!',x))
     df = df.explode('sent')
     df['sent'] = df['sent'].apply(lambda x: x.replace('\n','').strip())
-    # Number of characters in sentences
     df['sent_len'] = df['sent'].apply(lambda x: len(x))
-    # Number of words in sentences
     df['sent_word_count'] = df['sent'].apply(lambda x: len(x.split(' ')))
     df = df[df.sent_len!=0].reset_index(drop=True)
 
@@ -441,25 +418,32 @@ def parag_feats(df):
     paragraph_agg_df = paragraph_agg_df.rename(columns={"paragraph_len_count":"paragraph_count"})
     return paragraph_agg_df
 
-
 def word_feats_v2(df):
     
     df_base = pd.DataFrame(df['id'].unique(), columns=['id'])
     df['word'] = df['essay'].apply(lambda x: re.split(' |\\n|\\.|\\?|\\!',x))
     df = df.explode('word')
+    df['word_len'] = df['word'].str.len()
+    df = df[df['word_len']>0].copy()
+
+    for i in range(1, 10):
+        df[f'word_lag{i}'] = df.groupby('id')['word'].shift(i)
+        df[f'word_len_lag{i}'] = df.groupby('id')['word_len'].shift(i)
+    df['word_len_sum5'] = df[['word_len'] + [f'word_len_lag{i}' for i in range(1, 5)]].sum(axis=1)
+    df['word_len_sum10'] = df[['word_len'] + [f'word_len_lag{i}' for i in range(1, 10)]].sum(axis=1)
 
     df_words = df.groupby('id').agg(
         word_feats_apostrophe_cnt = ('word', lambda x: ((x.str.endswith("'q")) & (x.str.len()<=5)).sum()),
         word_feats_long_apostrophe_cnt = ('word', lambda x: ((x.str.contains("'")) & (x.str.len()>=8)).sum()),
+        word_feats_len35_len_sum5 = ('word_len_sum5', lambda x: (x>=35).sum()),
+        word_feats_median_len_sum10 = ('word_len_sum10', 'median')
     ).reset_index()
     
     df_result = df_base.merge(df_words, on='id', how='left').fillna(0)
 
     return df_result
 
-
 def sent_feats_v2(df):
-    logger.info('Add Features based on the first several words in a sentence.')
 
     df_base = pd.DataFrame(df['id'].unique(), columns=['id'])
 
@@ -500,7 +484,6 @@ def sent_feats_v2(df):
         sent_feats_last_exclamation = ('last', lambda x: (x=='!').sum())
     ).reset_index()
 
-
     df_first['sent_feats_first_three_four_comma'] = df_first['sent_feats_first_three_comma'] + df_first['sent_feats_first_four_comma']
     df_first = df_first.drop(['sent_feats_first_three_comma', 'sent_feats_first_four_comma'], axis=1)
 
@@ -508,21 +491,26 @@ def sent_feats_v2(df):
     
     return df_result
 
-def product_to_keys(logs, essays):
-    essays['product_len'] = essays.essay.str.len()
-    tmp_df = logs[logs.activity.isin(['Input', 'Remove/Cut'])].groupby(['id']).agg({'activity': 'count'}).reset_index().rename(columns={'activity': 'keys_pressed'})
-    essays = essays.merge(tmp_df, on='id', how='left')
-    essays['product_to_keys'] = essays['product_len'] / essays['keys_pressed']
-    return essays[['id', 'product_to_keys']]
 
-def get_keys_pressed_per_second(logs):
-    temp_df = logs[logs['activity'].isin(['Input', 'Remove/Cut'])].groupby(['id']).agg(keys_pressed=('event_id', 'count')).reset_index()
-    temp_df_2 = logs.groupby(['id']).agg(min_down_time=('down_time', 'min'), max_up_time=('up_time', 'max')).reset_index()
-    temp_df = temp_df.merge(temp_df_2, on='id', how='left')
-    temp_df['keys_per_second'] = temp_df['keys_pressed'] / ((temp_df['max_up_time'] - temp_df['min_down_time']) / 1000)
-    return temp_df[['id', 'keys_per_second']]
+def essay_diff_feats(log, essay_df):
 
-        
+    essays_15min_df = get_essay_df(log[log['down_time']<=15*60*1000])
+    essays_15min_df.rename(columns={'essay': 'essay15'}, inplace=True)
+    df_total = essay_df[['id', 'essay']].merge(essays_15min_df, on='id', how='left')
+    df_total['len_15min'] = df_total['essay15'].str.len().fillna(0)
+    
+    def edit_distance_first(x):
+        l = max(int(x['len_15min']) - 100, 1)
+        e, e15 = x['essay'], x['essay15']
+        if type(e) != str or type(e15) != str or min(len(e), len(e15)) < l:
+            return 0
+        else:
+            return Levenshtein.distance(e[:l], e15[:l])
+    
+    df_total['edit_distance_first_15min'] = df_total.apply(edit_distance_first, axis=1)
+    df_total.drop(['essay', 'essay15', 'len_15min'], axis=1, inplace=True)
+
+    return df_total
 
 
 class Runner():
@@ -561,28 +549,27 @@ class Runner():
     def _add_features(self, df, mode='train'):
 
         feats = dev_feats(pl.from_pandas(df))
-        # feats = feats.join(dev_feats_last(pl.from_pandas(df)), on='id', how='left')
         feats = feats.to_pandas()
     
-        logger.info('Add essay features.')
+        logger.info('Add simple essay features.')
         essays = get_essay_df(df)
         feats = feats.merge(word_feats(essays), on='id', how='left')
         feats = feats.merge(sent_feats(essays), on='id', how='left')
         feats = feats.merge(parag_feats(essays), on='id', how='left')
+        feats = feats.merge(word_feats_v2(essays), on='id', how='left')
+        feats = feats.merge(sent_feats_v2(essays), on='id', how='left')
+
+        logger.info('Add features based on comparison of essays at different timestamps.')
+        feats = feats.merge(essay_diff_feats(df, essays), on='id', how='left')
 
         logger.info('Add other features.')
         feats = feats.merge(get_keys_pressed_per_second(df), on='id', how='left')
         feats = feats.merge(product_to_keys(df, essays), on='id', how='left')
         feats = feats.merge(create_shortcuts(df), on='id', how='left')
-        feats = feats.merge(word_feats_v2(essays), on='id', how='left')
-        feats = feats.merge(sent_feats_v2(essays), on='id', how='left')
 
-        if RCFG.use_scaling:
-            logger.info('transform some features with standardscaler.')
-            feats[RCFG.scaling_features] = StandardScaler().fit_transform(feats[RCFG.scaling_features])
-
-        # logger.info('Add CountVectorizer features.')
-        # feats = feats.merge(get_countvectorizer_features(essays, mode=mode), on='id', how='left')
+        feats['comma_sent_len_rate'] = feats['down_event_comma_cnt'] / feats['sent_len_sum']
+        feats['sent_feats_first_two_word_short_rate'] = feats['sent_feats_first_two_word_short'] / feats['sent_count']
+        feats = feats.drop(['sent_feats_first_two_word_short'], axis=1)
 
         return feats
 
@@ -597,15 +584,6 @@ class Runner():
                 self.train_logs = fix_data(self.train_logs)
             train_feats = self._add_features(self.train_logs, mode='train')
             self.train_feats = train_feats.merge(self.train_scores, on='id', how='left')
-
-            if RCFG.exclude_outlier:
-                logger.info('Exclude outlier ids.')
-                exclude_ids = [
-                    "21bbc3f6","f58a6673","6763136d","9cdeaac5","29b7f2f6",
-                    "3e10785d","2d8a6af2","078a6196","cc995d97","f56f5478"
-                ]
-                self.train_feats = self.train_feats[~self.train_feats['id'].isin(exclude_ids)].reset_index(drop=True)
-
             self.train_feats.to_csv(f'{ENV.output_dir}train_feats.csv', index=False)
         else:
             logger.info(f'Load train data from {ENV.feature_dir}train_feats.csv.')
@@ -645,7 +623,6 @@ class Runner():
                         self.train_cols = [c for c in self.train_cols if not c.startswith('dummy_random')]
                     else:
                         self.train_cols = feature_df[feature_df.index <= RCFG.use_feature_rank]['feature'].tolist()
-                        # self.train_cols = feature_df[(~feature_df['feature'].str.contains('ngram')) | (feature_df.index <= RCFG.use_feature_rank)]['feature'].tolist()
                         
                     if seed_id == 0:
                         logger.info(f'self.train_cols: {len(self.train_cols)}')
@@ -661,18 +638,13 @@ class Runner():
                 if not last: 
                     params['learning_rate'] = 0.05 
                     params['colsample_bytree'] = 0.6
-                
-                weight = None
-                if RCFG.use_weight:
-                    weight = y_train['score'].apply(lambda x: 1.25 if x <= 2.5 else 1)
 
                 model = lgb.LGBMRegressor(**params)
                 early_stopping_callback = lgb.early_stopping(200, first_metric_only=True, verbose=False)
                 verbose_callback = lgb.log_evaluation(100)
                 model.fit(
                     X_train, y_train, eval_set=[(X_valid, y_valid)],  
-                    callbacks=[early_stopping_callback, verbose_callback],
-                    sample_weight = weight
+                    callbacks=[early_stopping_callback, verbose_callback]
                 )
                 valid_predict = model.predict(X_valid)
                 oof_valid_preds[valid_idx] = valid_predict
@@ -800,9 +772,3 @@ class Runner():
         logger.info('Save submission.csv')
         self.test_feats['score'] = np.mean(test_predict_list, axis=0)
         self.test_feats[['id', 'score']].to_csv("submission.csv", index=False)
-
-
-    def run(self,):
-        
-        pass
-
